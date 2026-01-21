@@ -5,30 +5,14 @@ import { Bell, Search } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { authService } from "@/lib/auth"
 import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/authProvider"
 
-type User = {
-  name: string
-  last_name?: string
-  email: string
-}
 
 export function DashboardHeader() {
-  const [user, setUser] = useState<User | null>(null)
+  const {user, loading} = useAuth()
 
-  useEffect(() => {
+  if(loading) return null
 
-    async function loadUser() {
-      const user = await authService.getUser()
-      if (!user) return
-
-      const userData = await authService.getProfile(user.id)
-      setUser(userData)
-    }
-
-    loadUser()
-  }, [])
-
-  
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center gap-4 px-4 md:px-6">
@@ -48,7 +32,7 @@ export function DashboardHeader() {
           </Button>
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary text-primary-foreground font-medium">
-              {user?.name?.charAt(0).toUpperCase() || "U"}
+              {user?.name?.charAt(0).toUpperCase() ?? "U"}
             </AvatarFallback>
           </Avatar>
         </div>

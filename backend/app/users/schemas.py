@@ -1,7 +1,11 @@
 from pydantic import BaseModel
+from uuid import UUID
 
 class UserSchema(BaseModel):
+    id: UUID
     email: str
-    password: str
-    name: str
-    last_name: str | None = None
+    name: str | None
+    last_name: str | None
+
+    class Config:
+        from_attributes = True

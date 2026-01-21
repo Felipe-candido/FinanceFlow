@@ -23,7 +23,7 @@ export const authService = {
     })
 
     if (error) throw error
-    if (!data.user) throw new Error("Usuário não criado")
+    if (!data.user) throw new Error("USER NOT CREATED")
 
     // CRIA O PERFIL COM OS DADOS ADICIONAIS
     const { error: profileError} = await supabase
@@ -36,6 +36,8 @@ export const authService = {
 
     if (profileError) throw profileError
 
+    console.log("USER CREATED:", data.user)
+
     return data.user  
   },
 
@@ -47,6 +49,8 @@ export const authService = {
     })
 
     if (error) throw error
+
+    console.log("USER LOGGED IN:", data.user)
     return data.user 
   },
 
@@ -69,6 +73,8 @@ export const authService = {
       .select("*")
       .eq("id", userId)
       .single()
+
+      console.log("USER PROFILE:", data)
 
       if (error) throw error
       return data
