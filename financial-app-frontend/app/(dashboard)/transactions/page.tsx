@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { mockTransactions, categories, getCategoryById, type Transaction } from "@/lib/mock-data"
+import { mockTransactions, categories, getCategoryById, type Transaction } from "@/lib/data"
 import { TransactionModal } from "@/components/transaction-modal"
 import { Plus, Search, Filter, ArrowUpDown, Trash2 } from "lucide-react"
 

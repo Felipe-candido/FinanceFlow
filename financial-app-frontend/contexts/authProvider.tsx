@@ -28,7 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function loadUser() {
       const { data } = await supabase.auth.getSession()
 
-      console.log("TESTE DP CARAIO:", data)
       const session = data.session
 
       if (!session) {

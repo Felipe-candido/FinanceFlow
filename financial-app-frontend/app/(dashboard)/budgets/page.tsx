@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { getCategoryById } from "@/lib/mock-data"
+import { getCategoryById } from "@/lib/data"
 import { BudgetModal } from "@/components/budget-modal"
 import { Plus, TrendingUp, AlertCircle, CheckCircle2, Pencil, Trash2 } from "lucide-react"
 
@@ -193,13 +193,12 @@ export default function BudgetsPage() {
                     <div className="flex items-center gap-2">
                       <Badge
                         variant="outline"
-                        className={`${
-                          budgetStatus.color === "destructive"
+                        className={`${budgetStatus.color === "destructive"
                             ? "border-destructive/50 text-destructive"
                             : budgetStatus.color === "warning"
                               ? "border-warning/50 text-warning"
                               : "border-success/50 text-success"
-                        }`}
+                          }`}
                       >
                         <StatusIcon className="mr-1 h-3 w-3" />
                         {percentage.toFixed(0)}%
@@ -233,9 +232,8 @@ export default function BudgetsPage() {
                   </div>
                   {percentage >= 80 && (
                     <div
-                      className={`flex items-start gap-2 p-3 rounded-lg border ${
-                        percentage >= 100 ? "bg-destructive/5 border-destructive/20" : "bg-warning/5 border-warning/20"
-                      }`}
+                      className={`flex items-start gap-2 p-3 rounded-lg border ${percentage >= 100 ? "bg-destructive/5 border-destructive/20" : "bg-warning/5 border-warning/20"
+                        }`}
                     >
                       <AlertCircle
                         className={`h-4 w-4 mt-0.5 ${percentage >= 100 ? "text-destructive" : "text-warning"}`}

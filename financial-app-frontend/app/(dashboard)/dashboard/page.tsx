@@ -5,18 +5,27 @@ import type React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Plus } from "lucide-react"
-import { mockTransactions, calculateBalance, getCategoryById } from "@/lib/mock-data"
+import { mockTransactions, calculateBalance, getCategoryById } from "@/lib/data"
 import { Progress } from "@/components/ui/progress"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { useState } from "react"
+import { TransactionModal } from "@/components/transaction-modal"
+import type { Transaction } from "@/lib/data"
+import { mock } from "node:test"
 
 export default function DashboardPage() {
   const currentMonth = new Date().getMonth()
   const currentYear = new Date().getFullYear()
-  const transactions = mockTransactions
-  const { income, expenses, balance } = calculateBalance(transactions)
+  const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
+  const { income, expenses, balance } = calculateBalance(transactions ?? [])
+  const [modalOpen, setModalOpen] = useState(false)
+
+  const handleAddTransaction = (newTransaction: Transaction) => {
+    setTransactions([...transactions, newTransaction])
+  }
 
   // Calculate expenses by category
-  const expensesByCategory = transactions
+  const expensesByCategory = mockTransactions
     .filter((t) => t.type === "expense")
     .reduce(
       (acc, t) => {
@@ -38,7 +47,7 @@ export default function DashboardPage() {
     )
     .sort((a, b) => b.value - a.value)
 
-  const recentTransactions = [...transactions]
+  const recentTransactions = [...mockTransactions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
 
@@ -64,7 +73,7 @@ export default function DashboardPage() {
           <h2 className="text-3xl font-bold tracking-tight">Olá! 👋</h2>
           <p className="text-muted-foreground mt-1">Aqui está um resumo das suas finanças</p>
         </div>
-        <Button size="lg" className="gap-2">
+        <Button size="lg" className="gap-2" onClick={() => setModalOpen(true)}>
           <Plus className="h-5 w-5" />
           Nova Transação
         </Button>
@@ -227,6 +236,10 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+
+      {/* Transaction Modal */}
+      <TransactionModal open={modalOpen} onOpenChange={setModalOpen} onSave={handleAddTransaction} />
     </div>
   )
 }

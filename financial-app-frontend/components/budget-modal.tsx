@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { categories } from "@/lib/mock-data"
+import { categories } from "@/lib/data"
 import { Loader2 } from "lucide-react"
 
 interface BudgetModalProps {

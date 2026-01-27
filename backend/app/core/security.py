@@ -1,7 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-import os
 import requests
 
 security = HTTPBearer(auto_error=False)
@@ -12,7 +11,6 @@ jwks = requests.get(JWKS_URL).json()
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
       token = credentials.credentials
-
 
       try:
             payload = jwt.decode(
