@@ -1,8 +1,12 @@
 from app.core.database import Base
-from sqlalchemy import String, Transaction
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.transactions.models import Transaction
 
 class User(Base):
     __tablename__ = "users"
@@ -30,6 +34,7 @@ class User(Base):
     )
 
     transactions: Mapped[list["Transaction"]] = relationship(
+        "Transaction",
         back_populates="user",
         cascade="all, delete-orphan"
     )

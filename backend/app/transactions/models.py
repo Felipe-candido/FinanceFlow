@@ -4,8 +4,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from users.models import User
+if TYPE_CHECKING:
+    from app.users.models import User
 
 
 class Transaction(Base):
@@ -25,6 +27,7 @@ class Transaction(Base):
     ) 
 
     user: Mapped["User"] = relationship(
+        "User",
         back_populates="transactions"
     )
 

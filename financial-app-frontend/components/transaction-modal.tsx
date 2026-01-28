@@ -136,7 +136,7 @@ export function TransactionModal({ open, onOpenChange, onSave }: TransactionModa
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
 
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label htmlFor="account">Conta</Label>
               <Select value={account} onValueChange={setAccount}>
                 <SelectTrigger id="account">
@@ -149,7 +149,7 @@ export function TransactionModal({ open, onOpenChange, onSave }: TransactionModa
                   <SelectItem value="Dinheiro">Dinheiro</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
           </div>
 
           <DialogFooter>

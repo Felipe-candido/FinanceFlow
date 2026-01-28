@@ -1,6 +1,6 @@
 from datetime import datetime
 from requests import Session
-from schemas import TransactionCreate
+from app.transactions.schemas import TransactionCreate
 from app.transactions.models import Transaction
 
 class TransactionService:
