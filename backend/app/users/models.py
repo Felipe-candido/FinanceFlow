@@ -1,6 +1,6 @@
 from app.core.database import Base
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Transaction
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
@@ -27,4 +27,9 @@ class User(Base):
     last_name: Mapped[str | None] = mapped_column(
         String,
         nullable=True
+    )
+
+    transactions: Mapped[list["Transaction"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
