@@ -18,6 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { categories } from "@/lib/data"
 import { Loader2 } from "lucide-react"
+import { supabase } from "@/lib/supabase/client"
 
 interface TransactionModalProps {
   open: boolean
@@ -34,7 +35,9 @@ export function TransactionModal({ open, onOpenChange, onSave }: TransactionModa
   const [account, setAccount] = useState("Banco Principal")
   const [loading, setLoading] = useState(false)
 
+
   const filteredCategories = categories.filter((cat) => cat.type === type)
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,16 +46,29 @@ export function TransactionModal({ open, onOpenChange, onSave }: TransactionModa
     // Simulate save delay
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    onSave({
-      id: Date.now().toString(),
-      type,
-      amount: Number.parseFloat(amount),
-      category,
-      description,
-      date,
-      account,
-    })
+    const { data } = await supabase.auth.getSession()
+    const session = data.session
+    if (!session) {
+        setLoading(false)
+        return
+      }
 
+      const request = await fetch("http://localhost:8000/transactions/add", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          date,
+          type,
+          amount: parseFloat(amount),
+          category,
+          description,
+        })
+      })
+    
+    
     setLoading(false)
     onOpenChange(false)
 
@@ -156,7 +172,7 @@ export function TransactionModal({ open, onOpenChange, onSave }: TransactionModa
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="bg-transparent">
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} onClick={handleSubmit}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -1,13 +1,12 @@
-// Mock data for the finance app
+
 
 export interface Transaction {
-  id: string
-  type: "income" | "expense"
+  id?: string 
+  type: string
   amount: number
   category: string
   description: string
-  date: string
-  account: string
+  date: Date | string
 }
 
 export interface Category {
@@ -45,70 +44,70 @@ export const mockTransactions: Transaction[] = [
     category: "salary",
     description: "Salário mensal",
     date: "2026-01-01",
-    account: "Banco Principal",
+    // account: "Banco Principal",
   },
   {
-    id: "2",
+    id:"2",
     type: "expense",
     amount: 120.5,
     category: "food",
     description: "Supermercado",
     date: "2026-01-02",
-    account: "Cartão de Crédito",
+    // account: "Cartão de Crédito",
   },
   {
-    id: "3",
+    id:"3",
     type: "expense",
     amount: 50,
     category: "transport",
     description: "Combustível",
     date: "2026-01-03",
-    account: "Banco Principal",
+    // account: "Banco Principal",
   },
   {
-    id: "4",
+    id:"4",
     type: "expense",
     amount: 1200,
     category: "housing",
     description: "Aluguel",
     date: "2026-01-01",
-    account: "Banco Principal",
+    // account: "Banco Principal",
   },
   {
-    id: "5",
+    id:"5",
     type: "income",
     amount: 800,
     category: "freelance",
     description: "Projeto web",
     date: "2026-01-04",
-    account: "Banco Principal",
+    // account: "Banco Principal",
   },
   {
-    id: "6",
+    id:"6",
     type: "expense",
     amount: 89.9,
     category: "entertainment",
     description: "Netflix e Spotify",
     date: "2026-01-05",
-    account: "Cartão de Crédito",
+    // account: "Cartão de Crédito",
   },
   {
-    id: "7",
+    id:"7",
     type: "expense",
     amount: 45.3,
     category: "food",
     description: "Restaurante",
     date: "2026-01-05",
-    account: "Cartão de Crédito",
+    // account: "Cartão de Crédito",
   },
   {
-    id: "8",
+    id:"8",
     type: "expense",
     amount: 200,
     category: "health",
     description: "Farmácia",
     date: "2026-01-06",
-    account: "Banco Principal",
+    // account: "Banco Principal",
   },
 ]
 

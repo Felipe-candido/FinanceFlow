@@ -12,31 +12,21 @@ import sys
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
-load_dotenv(BASE_DIR / ".env")
+dotenv_path = os.path.join(BASE_DIR, ".env")
+load_dotenv(dotenv_path)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("DATABASE_URL not found in environment variables.")
 
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
-
-if not all([DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME]):
-    raise RuntimeError("Variáveis de ambiente do banco não foram carregadas")
-
-DATABASE_URL = (
-    f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}"
-    f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+config.set_main_option(
+    "sqlalchemy.url",
+    DATABASE_URL.replace("%", "%%")
 )
-
-print(DATABASE_URL) 
-
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
-
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -46,7 +36,7 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from app.core.database import Base
-from core.models.tables import User
+from app.core.models.tables import Transaction
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -77,6 +67,13 @@ def run_migrations_offline() -> None:
 
     with context.begin_transaction():
         context.run_migrations()
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    # Ignora tabelas que estão no schema 'auth' (comum no Supabase)
+    if type_ == "table" and object.schema == "auth":
+        return False
+    return True
 
 
 def run_migrations_online() -> None:

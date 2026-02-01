@@ -2,10 +2,13 @@ from datetime import datetime
 from requests import Session
 from app.transactions.schemas import TransactionCreate
 from app.transactions.models import Transaction
+from app.users.models import User
+
 
 class TransactionService:
-      def __init__(self, db: Session):
+      def __init__(self, db: Session, user_id: str):
         self.db = db
+        self.user = db.get(User, user_id)
 
       def create_transaction(self, data: TransactionCreate) -> Transaction:
 
