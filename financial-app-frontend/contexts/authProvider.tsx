@@ -25,30 +25,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadUser() {
-      const { data } = await supabase.auth.getSession()
-
-      const session = data.session
-
+    async function loadUser(session: any) {
+      
       if (!session) {
+        setUser(null)
         setLoading(false)
         return
       }
 
-      const res = await fetch("http://localhost:8000/auth/me", {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      })
+      try {
+        const res = await fetch("http://localhost:8000/auth/me", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        })
 
-      console.log("RES DAQUI:", res)
-
-      const userData = await res.json()
-      setUser(userData)
-      setLoading(false)
+        if (res.ok) {
+          const userData = await res.json()
+          setUser(userData)
+        } else {
+          setUser(null)
+        }
+      } catch (error) {
+        console.error("Erro ao buscar usuário:", error)
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    loadUser()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      loadUser(session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Evento de Auth:", event)
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        loadUser(session)  
+      }
+      
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setLoading(false)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   return (
