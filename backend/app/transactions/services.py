@@ -27,3 +27,7 @@ class TransactionService:
 
             return new_transaction
 
+
+      def get_transactions(self) -> list[Transaction]:
+           return self.db.query(Transaction).filter(Transaction.user_id == self.user.id).all()
+           

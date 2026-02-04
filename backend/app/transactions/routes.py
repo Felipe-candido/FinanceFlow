@@ -21,3 +21,14 @@ async def create_transaction(
      service = TransactionService(db, current_user_id)
      new_transaction = service.create_transaction(transaction_data)
      return new_transaction
+
+
+@transactions_router.get("/list", response_model=list[TransactionResponse])
+async def list_transactions(
+     db = Depends(get_db),
+     current_user: dict = Depends(get_current_user)
+      ):
+     
+     current_user_id = current_user["sub"]
+     service = TransactionService(db, current_user_id)
+     return service.get_transactions()
