@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.transactions.schemas import TransactionBase, TransactionResponse
 from app.core.security import get_current_user
 
-transactions_router = APIRouter(prefix="/transactions", tags=["auth"])
+transactions_router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 @transactions_router.post("/add", response_model=TransactionResponse)
 async def create_transaction(

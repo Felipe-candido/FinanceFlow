@@ -28,6 +28,29 @@ class TransactionService:
             return new_transaction
 
 
-      def get_transactions(self) -> list[Transaction]:
-           return self.db.query(Transaction).filter(Transaction.user_id == self.user.id).all()
+      def get_transactions(self, start_date: datetime, end_date: datetime) -> list[Transaction]:
+           return self.db.query(Transaction)\
+                  .filter(Transaction.user_id == self.user.id)\
+                  .filter(Transaction.date.between(start_date, end_date))\
+                  .all()
+      
+
+      def get_expenses(self, start_date: datetime, end_date: datetime) -> list[Transaction]:
+           return self.db.query(Transaction)\
+                  .filter(Transaction.user_id == self.user.id,
+                          Transaction.type == "expense")\
+                  .filter(Transaction.date.between(start_date, end_date))\
+                  .all()
+      
+      
+      def get_incomes(self, start_date: datetime, end_date: datetime) -> list[Transaction]:
+           return self.db.query(Transaction)\
+                  .filter(Transaction.user_id == self.user.id,
+                          Transaction.type == "income")\
+                  .filter(Transaction.date.between(start_date, end_date))\
+                  .all()
+      
+      
+      
+      
            

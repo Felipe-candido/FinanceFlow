@@ -1,17 +1,19 @@
 "use client"
 
 import type React from "react"
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Plus } from "lucide-react"
 import { mockTransactions, calculateBalance, getCategoryById } from "@/lib/data"
 import { Progress } from "@/components/ui/progress"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { TransactionModal } from "@/components/transaction-modal"
 import type { Transaction } from "@/lib/data"
-import { mock } from "node:test"
+import { getDashboardData } from '@/lib/api/dashboard'
+import { useAuth } from "@/contexts/authProvider"
+
+console.log("Dashboard renderizou")
 
 export default function DashboardPage() {
   const currentMonth = new Date().getMonth()
@@ -19,10 +21,44 @@ export default function DashboardPage() {
   const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
   const { income, expenses, balance } = calculateBalance(transactions ?? [])
   const [modalOpen, setModalOpen] = useState(false)
+  const { token } = useAuth()
+  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   const handleAddTransaction = (newTransaction: Transaction) => {
-    setTransactions([...transactions, newTransaction])
+    setTransactions([...(transactions ??  []), newTransaction])
   }
+
+  async function loadData() {
+    if (!token) return
+
+    try{
+      setLoading(true)
+
+      const data = await getDashboardData({token})
+      console.log(data)
+
+      setDashboardData(data)
+    
+    } catch (error){
+      console.error('Error loading dashboard data:', error)
+    
+    }finally{
+      setLoading(false)
+    }
+
+    
+  }
+  
+  useEffect(() => {
+    console.log("useEffect rodou")
+    console.log("Token mudou:", token)
+
+    if (token) {
+      loadData()
+    }
+  }, [token])
+
 
   // Calculate expenses by category
   const expensesByCategory = mockTransactions
@@ -185,7 +221,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{transaction.description}</p>
-                      <p className="text-sm text-muted-foreground">{formatDate(transaction.date)}</p>
+                      <p className="text-sm text-muted-foreground">{formatDate(typeof transaction?.date === 'string' ? transaction.date : transaction.date.toISOString())}</p>
                     </div>
                     <div
                       className={`font-semibold ${transaction.type === "income" ? "text-success" : "text-destructive"}`}

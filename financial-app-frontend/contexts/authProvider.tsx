@@ -13,20 +13,23 @@ type User = {
 type AuthContextType = {
   user: User | null
   loading: boolean
+  token: string
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  token: ""
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [token, setToken] = useState<string>("")
 
   useEffect(() => {
     async function loadUser(session: any) {
-      
+
       if (!session) {
         setUser(null)
         setLoading(false)
@@ -55,20 +58,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.access_token) {
+        setToken(session.access_token)
+      }
       loadUser(session)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Evento de Auth:", event)
-      
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        loadUser(session)  
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log("Evento de Auth:", event)
+
+        if (
+          event === "SIGNED_IN" ||
+          event === "TOKEN_REFRESHED" ||
+          event === "INITIAL_SESSION"
+        ) {
+          setToken(session?.access_token || "")
+          loadUser(session)
+        }
+
+        if (event === "SIGNED_OUT") {
+          setUser(null)
+          setToken("")
+          setLoading(false)
+        }
       }
-      
-      if (event === 'SIGNED_OUT') {
-        setUser(null)
-        setLoading(false)
-      }
-    })
+    )
 
     return () => {
       subscription.unsubscribe()
@@ -76,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, token }}>
       {children}
     </AuthContext.Provider>
   )
