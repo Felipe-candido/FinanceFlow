@@ -5,6 +5,8 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
+from app.categories.models import Category
+
 
 if TYPE_CHECKING:
     from app.users.models import User
@@ -49,9 +51,16 @@ class Transaction(Base):
         nullable=True
     )
 
-    category: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False
+    category_id: Mapped[uuid.UUID] = mapped_column(
+    UUID(as_uuid=True),
+    ForeignKey("categories.id"),
+    nullable=False,
+    index=True
+    )
+
+    category: Mapped["Category"] = relationship(
+        "Category",
+        back_populates="transactions"
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -59,3 +68,6 @@ class Transaction(Base):
         server_default=func.now(),
         nullable=False
     )
+
+
+

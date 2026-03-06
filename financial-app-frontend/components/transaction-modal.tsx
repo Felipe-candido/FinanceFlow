@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,10 +13,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { categories } from "@/lib/data"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
+
+interface Category {
+  id: string
+  name: string
+  type: "income" | "expense"
+  color?: string
+}
 
 interface TransactionModalProps {
   open: boolean
@@ -26,59 +36,87 @@ interface TransactionModalProps {
   onSave: (transaction: any) => void
 }
 
-export function TransactionModal({ open, onOpenChange, onSave }: TransactionModalProps) {
+export function TransactionModal({
+  open,
+  onOpenChange,
+  onSave,
+}: TransactionModalProps) {
   const [type, setType] = useState<"income" | "expense">("expense")
   const [amount, setAmount] = useState("")
-  const [category, setCategory] = useState("")
+  const [category, setCategory] = useState<string | undefined>(undefined)
   const [description, setDescription] = useState("")
   const [date, setDate] = useState(new Date().toISOString().split("T")[0])
-  const [account, setAccount] = useState("Banco Principal")
   const [loading, setLoading] = useState(false)
 
+  const [categories, setCategories] = useState<Category[]>([])
 
-  const filteredCategories = categories.filter((cat) => cat.type === type)
+  // Busca categorias do backend
+  useEffect(() => {
+    console.log("useEffect modal rodou, open:", open)
 
+    const fetchCategories = async () => {
+      const { data } = await supabase.auth.getSession()
+      const session = data.session
+      if (!session) {
+        console.error("No session found, cannot fetch categories")
+        return
+      }
+      const response = await fetch("http://localhost:8000/categories/list", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      const dataCategories = await response.json()
+      console.log("Fetched categories:", dataCategories)
+      setCategories(dataCategories)
+    }
+
+    if (open) {
+      fetchCategories()
+    }
+  }, [open])
+
+  //Filtra por tipo (income ou expense)
+  const filteredCategories = categories.filter(
+    (cat) => cat.type === type
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
-    // Simulate save delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
     const { data } = await supabase.auth.getSession()
     const session = data.session
     if (!session) {
-        setLoading(false)
-        return
-      }
+      setLoading(false)
+      return
+    }
 
-      const request = await fetch("http://localhost:8000/transactions/add", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          date,
-          type,
-          amount: parseFloat(amount),
-          category,
-          description,
-        })
-      })
-    
-    
+    await fetch("http://localhost:8000/transactions/add", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        date,
+        type,
+        amount: parseFloat(amount),
+        category_id: category, 
+        description,
+      }),
+    })
+
     setLoading(false)
     onOpenChange(false)
 
-    // Reset form
+    // reset
     setType("expense")
     setAmount("")
     setCategory("")
     setDescription("")
     setDate(new Date().toISOString().split("T")[0])
-    setAccount("Banco Principal")
   }
 
   return (
@@ -86,14 +124,25 @@ export function TransactionModal({ open, onOpenChange, onSave }: TransactionModa
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Nova Transação</DialogTitle>
-          <DialogDescription>Adicione uma nova receita ou despesa</DialogDescription>
+          <DialogDescription>
+            Adicione uma nova receita ou despesa
+          </DialogDescription>
         </DialogHeader>
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
+
+            {/* Tipo */}
             <div className="space-y-2">
-              <Label htmlFor="type">Tipo</Label>
-              <Select value={type} onValueChange={(value: "income" | "expense") => setType(value)}>
-                <SelectTrigger id="type">
+              <Label>Tipo</Label>
+              <Select
+                value={type}
+                onValueChange={(value: "income" | "expense") => {
+                  setType(value)
+                  setCategory(undefined) 
+                }}
+              >
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -103,76 +152,71 @@ export function TransactionModal({ open, onOpenChange, onSave }: TransactionModa
               </Select>
             </div>
 
+            {/* Valor */}
             <div className="space-y-2">
-              <Label htmlFor="amount">Valor</Label>
+              <Label>Valor</Label>
               <Input
-                id="amount"
                 type="number"
                 step="0.01"
-                placeholder="0,00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
             </div>
 
+            {/* Categoria */}
             <div className="space-y-2">
-              <Label htmlFor="category">Categoria</Label>
-              <Select value={category} onValueChange={setCategory} required>
-                <SelectTrigger id="category">
+              <Label>Categoria</Label>
+              <Select
+                value={category}
+                onValueChange={(value) => setCategory(value)}
+              >
+                <SelectTrigger>
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredCategories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      <span className="flex items-center gap-2">
-                        <span>{cat.icon}</span>
-                        <span>{cat.name}</span>
-                      </span>
+                    <SelectItem key={`cat-${cat.id}`} value={cat.id}>
+                      {cat.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Descrição */}
             <div className="space-y-2">
-              <Label htmlFor="description">Descrição</Label>
+              <Label>Descrição</Label>
               <Textarea
-                id="description"
-                placeholder="Ex: Compras no supermercado"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required
-                rows={3}
               />
             </div>
 
+            {/* Data */}
             <div className="space-y-2">
-              <Label htmlFor="date">Data</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <Label>Data</Label>
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
             </div>
 
-            {/* <div className="space-y-2">
-              <Label htmlFor="account">Conta</Label>
-              <Select value={account} onValueChange={setAccount}>
-                <SelectTrigger id="account">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Banco Principal">Banco Principal</SelectItem>
-                  <SelectItem value="Cartão de Crédito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="Poupança">Poupança</SelectItem>
-                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div> */}
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="bg-transparent">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading} onClick={handleSubmit}>
+
+            <Button type="submit" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

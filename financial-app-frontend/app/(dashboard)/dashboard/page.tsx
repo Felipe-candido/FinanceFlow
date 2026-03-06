@@ -4,26 +4,28 @@ import type React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Plus } from "lucide-react"
-import { mockTransactions, calculateBalance, getCategoryById } from "@/lib/data"
 import { Progress } from "@/components/ui/progress"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
 import { useState, useEffect } from "react"
 import { TransactionModal } from "@/components/transaction-modal"
-import type { Transaction } from "@/lib/data"
+import type { Transaction, Category } from "@/lib/data"
 import { getDashboardData } from '@/lib/api/dashboard'
 import { useAuth } from "@/contexts/authProvider"
+import { CategoryTotal } from "@/lib/data"
+import { DashboardResponse } from "@/lib/data"
 
 console.log("Dashboard renderizou")
 
 export default function DashboardPage() {
   const currentMonth = new Date().getMonth()
   const currentYear = new Date().getFullYear()
-  const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
-  const { income, expenses, balance } = calculateBalance(transactions ?? [])
   const [modalOpen, setModalOpen] = useState(false)
   const { token } = useAuth()
-  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const expensesData: CategoryTotal[] = dashboardData?.expenses_by_category ?? []
+  const recentTransactions = dashboardData?.last_transactions ?? []
+  const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
 
   const handleAddTransaction = (newTransaction: Transaction) => {
     setTransactions([...(transactions ??  []), newTransaction])
@@ -36,7 +38,7 @@ export default function DashboardPage() {
       setLoading(true)
 
       const data = await getDashboardData({token})
-      console.log(data)
+      console.log("DASHBOARD DATA:", data)
 
       setDashboardData(data)
     
@@ -60,32 +62,6 @@ export default function DashboardPage() {
   }, [token])
 
 
-  // Calculate expenses by category
-  const expensesByCategory = mockTransactions
-    .filter((t) => t.type === "expense")
-    .reduce(
-      (acc, t) => {
-        const existing = acc.find((item) => item.category === t.category)
-        if (existing) {
-          existing.value += t.amount
-        } else {
-          const category = getCategoryById(t.category)
-          acc.push({
-            category: t.category,
-            name: category?.name || t.category,
-            value: t.amount,
-            color: category?.color || "#6b7280",
-          })
-        }
-        return acc
-      },
-      [] as { category: string; name: string; value: number; color: string }[],
-    )
-    .sort((a, b) => b.value - a.value)
-
-  const recentTransactions = [...mockTransactions]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5)
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -94,7 +70,7 @@ export default function DashboardPage() {
     }).format(value)
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | Date) => {
     return new Date(dateString).toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "short",
@@ -125,11 +101,17 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatCurrency(balance)}</div>
+            <div className="text-3xl font-bold">{formatCurrency(dashboardData?.balance ?? 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              <span className={balance >= 0 ? "text-success" : "text-destructive"}>
-                {balance >= 0 ? "+" : ""}
-                {((balance / (income || 1)) * 100).toFixed(1)}%
+              <span className={
+                dashboardData?.balance && dashboardData.balance >= 0 
+                ? "text-success" 
+                : "text-destructive"
+                }>
+                {dashboardData?.balance && dashboardData.balance >= 0 
+                ? "+" 
+                : ""}
+                {dashboardData && dashboardData.total_income > 0 ? ((dashboardData.balance / dashboardData.total_income) * 100).toFixed(1) : "0"}%
               </span>{" "}
               do total de receitas
             </p>
@@ -144,7 +126,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-success">{formatCurrency(income)}</div>
+            <div className="text-3xl font-bold text-success">{formatCurrency(dashboardData?.total_income ?? 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">Este mês</p>
           </CardContent>
         </Card>
@@ -157,7 +139,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-destructive">{formatCurrency(expenses)}</div>
+            <div className="text-3xl font-bold text-destructive">{formatCurrency(dashboardData?.total_expense ?? 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">Este mês</p>
           </CardContent>
         </Card>
@@ -175,19 +157,19 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
+    
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={expensesByCategory}
-                    dataKey="value"
-                    nameKey="name"
+                    data={expensesData}
+                    dataKey="total"
+                    nameKey="category"
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label={(entry) => entry.name}
                   >
-                    {expensesByCategory.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {expensesData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -212,24 +194,36 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentTransactions.map((transaction) => {
-                const category = getCategoryById(transaction.category)
+             {recentTransactions.map((transaction: Transaction) => {
                 return (
                   <div key={transaction.id} className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center text-lg">
-                      {category?.icon || "💰"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{transaction.description}</p>
-                      <p className="text-sm text-muted-foreground">{formatDate(typeof transaction?.date === 'string' ? transaction.date : transaction.date.toISOString())}</p>
-                    </div>
-                    <div
-                      className={`font-semibold ${transaction.type === "income" ? "text-success" : "text-destructive"}`}
-                    >
-                      {transaction.type === "income" ? "+" : "-"}
-                      {formatCurrency(transaction.amount)}
-                    </div>
+                  <div
+                    className="h-10 w-10 rounded-xl flex items-center justify-center text-lg"
+                    style={{ backgroundColor: transaction.category?.color ?? "#eee" }}
+                  >
+                    💰
                   </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">
+                      {transaction.description}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDate(transaction.date)}
+                    </p>
+                  </div>
+
+                  <div
+                    className={`font-semibold ${
+                      transaction.type === "income"
+                        ? "text-success"
+                        : "text-destructive"
+                    }`}
+                  >
+                    {transaction.type === "income" ? "+" : "-"}
+                    {formatCurrency(transaction.amount)}
+                  </div>
+                </div>
                 )
               })}
             </div>
@@ -247,25 +241,32 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {expensesByCategory.slice(0, 4).map((item) => {
-              const percentage = (item.value / expenses) * 100
+            {dashboardData?.expenses_by_category?.slice(0, 4).map((item: CategoryTotal) => {
+              const percentage =
+                dashboardData.total_expense > 0
+                  ? (item.total / dashboardData.total_expense) * 100
+                  : 0
+
               return (
                 <div key={item.category} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                      <span className="font-medium">{item.name}</span>
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      ></div>
+                      <span className="font-medium">{item.category}</span>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold">{formatCurrency(item.value)}</div>
-                      <div className="text-xs text-muted-foreground">{percentage.toFixed(1)}%</div>
+                      <div className="font-semibold">
+                        {formatCurrency(item.total)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {percentage.toFixed(1)}%
+                      </div>
                     </div>
                   </div>
-                  <Progress
-                    value={percentage}
-                    className="h-2"
-                    style={{ ["--progress-background" as string]: item.color } as React.CSSProperties}
-                  />
+                  <Progress value={percentage} className="h-2" />
                 </div>
               )
             })}

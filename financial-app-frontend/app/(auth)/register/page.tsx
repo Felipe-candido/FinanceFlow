@@ -39,13 +39,17 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      await authService.register({ name, email, password })
-      router.push("/dashboard")
+      const res = await authService.register({ name, email, password })
+      console.log("REGISTER RESPONSE:", res)
+
+      router.push("/login")
     } catch (err) {
+      console.error("REGISTER ERROR:", err)
       setError(err instanceof Error ? err.message : "Erro ao criar conta")
     } finally {
       setLoading(false)
     }
+    
   }
 
   return (

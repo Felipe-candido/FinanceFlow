@@ -3,6 +3,8 @@ from app.dashboard.schemas import DashboardResponse, DashboardPeriod
 from app.transactions.models import Transaction
 from datetime import datetime
 from enum import Enum
+from sqlalchemy.orm import joinedload
+from app.categories.models import Category
 
 
 class TransactionType(str, Enum):
@@ -41,6 +43,7 @@ class DashboardService:
     def get_last_transactions(self) -> list[Transaction]:
         stmt = (
             select(Transaction)
+            .options(joinedload(Transaction.category))
             .where(Transaction.user_id == self.user_id)
             .order_by(Transaction.date.desc())
             .limit(5)
@@ -50,23 +53,21 @@ class DashboardService:
 
         return result
 
-    def _get_total_by_category(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-        type_: TransactionType,
-    ):
+    def _get_total_by_category(self, start_date, end_date, type_):
+
         stmt = (
             select(
-                Transaction.category.label("category"),
+                Category.name.label("category"),
+                Category.color.label("color"),
                 func.coalesce(func.sum(Transaction.amount), 0).label("total"),
             )
+            .join(Category, Transaction.category_id == Category.id)
             .where(
                 Transaction.user_id == self.user_id,
                 Transaction.type == type_.value,
                 Transaction.date.between(start_date, end_date),
             )
-            .group_by(Transaction.category)
+            .group_by(Category.name, Category.color)
         )
 
         result = self.db.execute(stmt).mappings().all()

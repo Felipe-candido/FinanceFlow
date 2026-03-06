@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.users.auth.auth_routes import auth_router
 from app.transactions.routes import transactions_router
 from app.dashboard.routers import dashboard_router
+from app.categories.routes import category_router
 
 app = FastAPI()
 
@@ -26,4 +27,5 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(transactions_router)
 app.include_router(dashboard_router)
+app.include_router(category_router)
 # para rodar o servidor, executar no terminal: uvicorn main:app --reload

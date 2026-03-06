@@ -1,6 +1,4 @@
-// Mock authentication utilities
-// In production, this would integrate with a real backend
-import { supabase } from "./supabase/client" 
+import { supabase } from "./supabase/client"
 
 type UserData = {
   name: string
@@ -13,9 +11,9 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 
 export const authService = {
-  
-  async register({name, email, password}: UserData) {
-     
+
+  async register({ name, email, password }: UserData) {
+
     // CRIA USUARIO NO SUPABASE AUTH
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -26,7 +24,7 @@ export const authService = {
     if (!data.user) throw new Error("USER NOT CREATED")
 
     // CRIA O PERFIL COM OS DADOS ADICIONAIS
-    const { error: profileError} = await supabase
+    const { error: profileError } = await supabase
       .from("users")
       .insert({
         id: data.user.id,
@@ -38,11 +36,11 @@ export const authService = {
 
     console.log("USER CREATED:", data.user)
 
-    return data.user  
+    return data.user
   },
 
 
-  async login(email: string, password: string){
+  async login(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -51,7 +49,7 @@ export const authService = {
     if (error) throw error
 
     console.log("USER LOGGED IN:", data.user)
-    return data.user 
+    return data.user
   },
 
 
@@ -67,18 +65,18 @@ export const authService = {
   },
 
 
-  async getProfile(userId: string){
-    const { data, error} = await supabase
+  async getProfile(userId: string) {
+    const { data, error } = await supabase
       .from("users")
       .select("*")
       .eq("id", userId)
       .single()
 
-      console.log("USER PROFILE:", data)
+    console.log("USER PROFILE:", data)
 
-      if (error) throw error
-      return data
+    if (error) throw error
+    return data
   }
 
- 
+
 }
