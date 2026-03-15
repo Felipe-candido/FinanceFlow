@@ -1,3 +1,5 @@
+from typing import Optional
+
 from app.core.dependecies import get_db
 from datetime import datetime
 from app.transactions.services import TransactionService
@@ -25,10 +27,12 @@ async def create_transaction(
 
 @transactions_router.get("/list", response_model=list[TransactionResponse])
 async def list_transactions(
+     start_date: Optional[datetime] = None,
+     end_date: Optional[datetime] = None,
      db = Depends(get_db),
      current_user: dict = Depends(get_current_user)
       ):
      
      current_user_id = current_user["sub"]
      service = TransactionService(db, current_user_id)
-     return service.get_transactions()
+     return service.get_transactions(start_date, end_date)

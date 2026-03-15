@@ -48,14 +48,9 @@ export default function DashboardPage() {
     }finally{
       setLoading(false)
     }
-
-    
   }
   
-  useEffect(() => {
-    console.log("useEffect rodou")
-    console.log("Token mudou:", token)
-
+  useEffect(() => { 
     if (token) {
       loadData()
     }

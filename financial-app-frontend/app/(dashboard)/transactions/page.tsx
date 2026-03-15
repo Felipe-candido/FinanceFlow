@@ -1,32 +1,72 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { mockTransactions, categories, getCategoryById, type Transaction } from "@/lib/data"
+import { CategoryTotal } from "@/lib/data"
 import { TransactionModal } from "@/components/transaction-modal"
 import { Plus, Search, Filter, ArrowUpDown, Trash2 } from "lucide-react"
+import type { Transaction, Category } from "@/lib/data"
+import  { getCategories, getTransactions } from "@/lib/api/category"
+import { useAuth } from "@/contexts/authProvider"
+import { get } from "http"
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions)
+  const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all")
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [sortBy, setSortBy] = useState<"date" | "amount">("date")
   const [modalOpen, setModalOpen] = useState(false)
+  const [categories, setCategories] = useState<Category[] | []>([])
+  const { token } = useAuth()
+
+  async function loadCategories() {
+    if (!token) return
+    
+    try{
+      const data = await getCategories(token)
+      console.log("CATEGORIES", data)
+
+      setCategories(data)
+    
+    }catch(error){
+      console.error("Failed to load categories", error)     
+    }
+  }
+
+  async function loadTransactions() {
+    if (!token) return
+
+    try {
+      const data = await getTransactions(token)
+      console.log("TRANSACTIONS", data)
+      setTransactions(data)
+    } catch (error) {
+      console.error("Failed to load transactions", error)
+    }
+  }
+
+  useEffect(() => {
+    if(token){
+      loadCategories()
+      loadTransactions()
+    }
+  }, [token]) 
+
 
   const filteredTransactions = useMemo(() => {
-    let filtered = [...transactions]
+    let filtered = [...(transactions || [])]
 
     // Filter by search query
     if (searchQuery) {
       filtered = filtered.filter(
         (t) =>
           t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          getCategoryById(t.category)?.name.toLowerCase().includes(searchQuery.toLowerCase()),
+          t.category.name.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     }
 
@@ -37,7 +77,7 @@ export default function TransactionsPage() {
 
     // Filter by category
     if (filterCategory !== "all") {
-      filtered = filtered.filter((t) => t.category === filterCategory)
+      filtered = filtered.filter((t) => t.category.id === filterCategory)
     }
 
     // Sort
@@ -53,11 +93,11 @@ export default function TransactionsPage() {
   }, [transactions, searchQuery, filterType, filterCategory, sortBy])
 
   const handleAddTransaction = (newTransaction: Transaction) => {
-    setTransactions([...transactions, newTransaction])
+    setTransactions([...(transactions || []) , newTransaction])
   }
 
   const handleDeleteTransaction = (id: string) => {
-    setTransactions(transactions.filter((t) => t.id !== id))
+    setTransactions((transactions || []).filter((t) => t.id !== id))
   }
 
   const formatCurrency = (value: number) => {
@@ -79,7 +119,7 @@ export default function TransactionsPage() {
   const groupedTransactions = useMemo(() => {
     const groups: { [key: string]: Transaction[] } = {}
     filteredTransactions.forEach((transaction) => {
-      const dateKey = transaction.date
+      const dateKey = new Date(transaction.date).toISOString().split("T")[0]
       if (!groups[dateKey]) {
         groups[dateKey] = []
       }
@@ -136,9 +176,9 @@ export default function TransactionsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as categorias</SelectItem>
-                {categories.map((cat) => (
+                {(categories).map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
+                     {cat.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -182,7 +222,6 @@ export default function TransactionsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {dayTransactions.map((transaction) => {
-                  const category = getCategoryById(transaction.category)
                   return (
                     <div
                       key={transaction.id}
@@ -190,17 +229,16 @@ export default function TransactionsPage() {
                     >
                       <div
                         className="h-12 w-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                        style={{ backgroundColor: `${category?.color}20` }}
+                        style={{ backgroundColor: `${transaction.category?.color}20` }}
                       >
-                        {category?.icon || "💰"}
+                        💰
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{transaction.description}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-xs">
-                            {category?.name}
+                            {transaction.category?.name}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">{transaction.account}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -214,7 +252,7 @@ export default function TransactionsPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteTransaction(transaction.id)}
+                          onClick={() => handleDeleteTransaction((transaction.id) || "")}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

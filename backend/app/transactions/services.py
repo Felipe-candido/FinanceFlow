@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from requests import Session
 from app.transactions.schemas import TransactionCreate
 from app.transactions.models import Transaction
@@ -41,12 +42,23 @@ class TransactionService:
             return new_transaction
 
 
-      def get_transactions(self, start_date: datetime, end_date: datetime) -> list[Transaction]:
-           return self.db.query(Transaction)\
+      def get_transactions(
+                self, 
+                start_date: Optional[datetime] = None, 
+                end_date: Optional[datetime] = None
+                ) -> list[Transaction]:
+           
+           query = self.db.query(Transaction)\
            .options(joinedload(Transaction.category))\
-                  .filter(Transaction.user_id == self.user.id)\
-                  .filter(Transaction.date.between(start_date, end_date))\
-                  .all()
+                  .filter(Transaction.user_id == self.user.id)
+
+           if start_date is not None:
+               query = query.filter(Transaction.date >= start_date)
+
+           if end_date is not None:
+               query = query.filter(Transaction.date <= end_date)
+
+           return query.all()
       
 
       def get_expenses(self, start_date: datetime, end_date: datetime) -> list[Transaction]:

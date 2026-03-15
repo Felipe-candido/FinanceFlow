@@ -52,8 +52,6 @@ export function TransactionModal({
 
   // Busca categorias do backend
   useEffect(() => {
-    console.log("useEffect modal rodou, open:", open)
-
     const fetchCategories = async () => {
       const { data } = await supabase.auth.getSession()
       const session = data.session
@@ -73,7 +71,7 @@ export function TransactionModal({
     }
 
     if (open) {
-      fetchCategories()
+      fetchCategories() 
     }
   }, [open])
 
