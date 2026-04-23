@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -28,23 +28,42 @@ const MONTHS = [
   { label: "Dezembro", value: 12 },
 ]
 
+const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR]
+
+function getLast6Months(month?: number, year?: number) {
+  const now = new Date()
+  const baseMonth = month ?? now.getMonth() + 1
+  const baseYear = year ?? now.getFullYear()
+
+  const months = []
+  for (let i = 5; i >= 0; i--) {
+    let m = baseMonth - i
+    let y = baseYear
+    if (m <= 0) {
+      m += 12
+      y -= 1
+    }
+    months.push({ month: m, year: y })
+  }
+  return months
+}
 
 export default function ReportsPage() {
   const [chartType, setChartType] = useState<"bar" | "line">("bar")
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(false)
-
-  // ✅ filtro de mês/ano — undefined por padrão (API retorna mês atual)
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(undefined)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined)
+
+  type MonthlyEntry = { month: string; receitas: number; despesas: number }
+  const [monthlyData, setMonthlyData] = useState<MonthlyEntry[]>([])
 
   const { token } = useAuth()
 
   const incomeData: CategoryTotal[] = dashboardData?.income_by_category ?? []
   const expensesData: CategoryTotal[] = dashboardData?.expenses_by_category ?? []
-
   const balance = dashboardData?.balance ?? 0
   const totalIncome = dashboardData?.total_income ?? 0
   const totalExpense = dashboardData?.total_expense ?? 0
@@ -57,8 +76,22 @@ export default function ReportsPage() {
     if (!token) return
     try {
       setLoading(true)
-      const data = await getDashboardData({ token, month, year })
-      setDashboardData(data)
+
+      const last6 = getLast6Months(month, year)
+
+      const [main, ...monthlyResults] = await Promise.all([
+        getDashboardData({ token, month, year }),
+        ...last6.map((m) => getDashboardData({ token, month: m.month, year: m.year })),
+      ])
+
+      setDashboardData(main)
+      setMonthlyData(
+        last6.map((m, index) => ({
+          month: MONTH_LABELS[m.month - 1],
+          receitas: monthlyResults[index]?.total_income ?? 0,
+          despesas: monthlyResults[index]?.total_expense ?? 0,
+        }))
+      )
     } catch (error) {
       console.error("Error loading dashboard data:", error)
     } finally {
@@ -66,24 +99,9 @@ export default function ReportsPage() {
     }
   }
 
-  // ✅ recarrega sempre que mês, ano ou token mudam
   useEffect(() => {
     if (token) loadData(selectedMonth, selectedYear)
   }, [token, selectedMonth, selectedYear])
-
-  const monthlyData = useMemo(() => {
-    const months = ["Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-    return months.map((month) => {
-      const baseIncome = 5000 + Math.random() * 2000
-      const baseExpense = 3500 + Math.random() * 1500
-      return {
-        month,
-        receitas: +baseIncome.toFixed(2),
-        despesas: +baseExpense.toFixed(2),
-        saldo: +(baseIncome - baseExpense).toFixed(2),
-      }
-    })
-  }, [])
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload?.length) {
@@ -111,12 +129,9 @@ export default function ReportsPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* ✅ Seletor de mês */}
           <Select
             value={selectedMonth !== undefined ? String(selectedMonth) : "all"}
-            onValueChange={(value) =>
-              setSelectedMonth(value === "all" ? undefined : Number(value))
-            }
+            onValueChange={(value) => setSelectedMonth(value === "all" ? undefined : Number(value))}
           >
             <SelectTrigger className="w-[150px]">
               <div className="flex items-center gap-2">
@@ -127,19 +142,14 @@ export default function ReportsPage() {
             <SelectContent>
               <SelectItem value="all">Mês atual</SelectItem>
               {MONTHS.map((m) => (
-                <SelectItem key={m.value} value={String(m.value)}>
-                  {m.label}
-                </SelectItem>
+                <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          {/* ✅ Seletor de ano */}
           <Select
             value={selectedYear !== undefined ? String(selectedYear) : "all"}
-            onValueChange={(value) =>
-              setSelectedYear(value === "all" ? undefined : Number(value))
-            }
+            onValueChange={(value) => setSelectedYear(value === "all" ? undefined : Number(value))}
           >
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Ano" />
@@ -147,9 +157,7 @@ export default function ReportsPage() {
             <SelectContent>
               <SelectItem value="all">Ano atual</SelectItem>
               {YEARS.map((y) => (
-                <SelectItem key={y} value={String(y)}>
-                  {y}
-                </SelectItem>
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
               ))}
             </SelectContent>
           </Select>
