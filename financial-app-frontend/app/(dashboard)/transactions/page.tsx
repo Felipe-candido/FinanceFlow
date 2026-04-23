@@ -23,6 +23,8 @@ export default function TransactionsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [categories, setCategories] = useState<Category[] | []>([])
   const { token } = useAuth()
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
 
   async function loadCategories() {
     if (!token) return
@@ -89,8 +91,31 @@ export default function TransactionsPage() {
       }
     })
 
+    function formatDate(date: string | Date) {
+      if (typeof date === "string") {
+        return date.split("T")[0]
+      }
+
+      // se for Date
+      return date.toISOString().split("T")[0]
+    }
+
+    if (startDate){
+      filtered = filtered.filter((t) => {
+        const transactionDate = formatDate(t.date).split("T")[0]
+        transactionDate >= startDate
+      })
+    }
+
+    if (endDate){
+      filtered = filtered.filter((t) => {
+        const transactionDate = formatDate(t.date).split("T")[0]
+        transactionDate <= endDate
+      })
+    }
+
     return filtered
-  }, [transactions, searchQuery, filterType, filterCategory, sortBy])
+  }, [transactions, searchQuery, filterType, filterCategory, sortBy, startDate, endDate])
 
   const handleAddTransaction = (newTransaction: Transaction) => {
     setTransactions([...(transactions || []) , newTransaction])
@@ -145,7 +170,7 @@ export default function TransactionsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -155,6 +180,19 @@ export default function TransactionsPage() {
                 className="pl-10"
               />
             </div>
+
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+
 
             <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
               <SelectTrigger>

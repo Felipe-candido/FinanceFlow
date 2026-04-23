@@ -1,110 +1,92 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockTransactions, calculateBalance, getCategoryById } from "@/lib/data"
+import { CategoryTotal, DashboardResponse } from "@/lib/data"
+import { getDashboardData } from "@/lib/api/reports"
+import { useAuth } from "@/contexts/authProvider"
 import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  LineChart,
-  Line,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, LineChart, Line,
+  Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts"
 import { TrendingUp, TrendingDown, Calendar, Download } from "lucide-react"
 
-export default function ReportsPage() {
-  const [period, setPeriod] = useState<"week" | "month" | "year">("month")
-  const [chartType, setChartType] = useState<"bar" | "line">("bar")
+const MONTHS = [
+  { label: "Janeiro", value: 1 },
+  { label: "Fevereiro", value: 2 },
+  { label: "Março", value: 3 },
+  { label: "Abril", value: 4 },
+  { label: "Maio", value: 5 },
+  { label: "Junho", value: 6 },
+  { label: "Julho", value: 7 },
+  { label: "Agosto", value: 8 },
+  { label: "Setembro", value: 9 },
+  { label: "Outubro", value: 10 },
+  { label: "Novembro", value: 11 },
+  { label: "Dezembro", value: 12 },
+]
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value)
+const CURRENT_YEAR = new Date().getFullYear()
+const YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR]
+
+export default function ReportsPage() {
+  const [chartType, setChartType] = useState<"bar" | "line">("bar")
+  const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  // ✅ filtro de mês/ano — undefined por padrão (API retorna mês atual)
+  const [selectedMonth, setSelectedMonth] = useState<number | undefined>(undefined)
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined)
+
+  const { token } = useAuth()
+
+  const incomeData: CategoryTotal[] = dashboardData?.income_by_category ?? []
+  const expensesData: CategoryTotal[] = dashboardData?.expenses_by_category ?? []
+
+  const balance = dashboardData?.balance ?? 0
+  const totalIncome = dashboardData?.total_income ?? 0
+  const totalExpense = dashboardData?.total_expense ?? 0
+  const balancePercent = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : "0"
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
+
+  async function loadData(month?: number, year?: number) {
+    if (!token) return
+    try {
+      setLoading(true)
+      const data = await getDashboardData({ token, month, year })
+      setDashboardData(data)
+    } catch (error) {
+      console.error("Error loading dashboard data:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Calculate monthly data for the past 6 months
+  // ✅ recarrega sempre que mês, ano ou token mudam
+  useEffect(() => {
+    if (token) loadData(selectedMonth, selectedYear)
+  }, [token, selectedMonth, selectedYear])
+
   const monthlyData = useMemo(() => {
     const months = ["Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-    return months.map((month, index) => {
+    return months.map((month) => {
       const baseIncome = 5000 + Math.random() * 2000
       const baseExpense = 3500 + Math.random() * 1500
       return {
         month,
-        receitas: Number.parseFloat(baseIncome.toFixed(2)),
-        despesas: Number.parseFloat(baseExpense.toFixed(2)),
-        saldo: Number.parseFloat((baseIncome - baseExpense).toFixed(2)),
+        receitas: +baseIncome.toFixed(2),
+        despesas: +baseExpense.toFixed(2),
+        saldo: +(baseIncome - baseExpense).toFixed(2),
       }
     })
   }, [])
 
-  // Expenses by category
-  const expensesByCategory = useMemo(() => {
-    const categoryData = mockTransactions
-      .filter((t) => t.type === "expense")
-      .reduce(
-        (acc, t) => {
-          const existing = acc.find((item) => item.category === t.category)
-          if (existing) {
-            existing.value += t.amount
-          } else {
-            const category = getCategoryById(t.category)
-            acc.push({
-              category: t.category,
-              name: category?.name || t.category,
-              value: t.amount,
-              color: category?.color || "#6b7280",
-            })
-          }
-          return acc
-        },
-        [] as { category: string; name: string; value: number; color: string }[],
-      )
-      .sort((a, b) => b.value - a.value)
-
-    return categoryData
-  }, [])
-
-  // Income by category
-  const incomeByCategory = useMemo(() => {
-    const categoryData = mockTransactions
-      .filter((t) => t.type === "income")
-      .reduce(
-        (acc, t) => {
-          const existing = acc.find((item) => item.category === t.category)
-          if (existing) {
-            existing.value += t.amount
-          } else {
-            const category = getCategoryById(t.category)
-            acc.push({
-              category: t.category,
-              name: category?.name || t.category,
-              value: t.amount,
-              color: category?.color || "#10b981",
-            })
-          }
-          return acc
-        },
-        [] as { category: string; name: string; value: number; color: string }[],
-      )
-
-    return categoryData
-  }, [])
-
-  const { income, expenses, balance } = calculateBalance(mockTransactions)
-
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
+    if (active && payload?.length) {
       return (
         <div className="bg-card border rounded-lg shadow-lg p-3">
           <p className="font-medium mb-2">{label}</p>
@@ -127,20 +109,51 @@ export default function ReportsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Relatórios</h2>
           <p className="text-muted-foreground mt-1">Análise detalhada das suas finanças</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={period} onValueChange={(value: any) => setPeriod(value)}>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* ✅ Seletor de mês */}
+          <Select
+            value={selectedMonth !== undefined ? String(selectedMonth) : "all"}
+            onValueChange={(value) =>
+              setSelectedMonth(value === "all" ? undefined : Number(value))
+            }
+          >
             <SelectTrigger className="w-[150px]">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                <SelectValue />
+                <SelectValue placeholder="Mês" />
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">Semana</SelectItem>
-              <SelectItem value="month">Mês</SelectItem>
-              <SelectItem value="year">Ano</SelectItem>
+              <SelectItem value="all">Mês atual</SelectItem>
+              {MONTHS.map((m) => (
+                <SelectItem key={m.value} value={String(m.value)}>
+                  {m.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+
+          {/* ✅ Seletor de ano */}
+          <Select
+            value={selectedYear !== undefined ? String(selectedYear) : "all"}
+            onValueChange={(value) =>
+              setSelectedYear(value === "all" ? undefined : Number(value))
+            }
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Ano" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Ano atual</SelectItem>
+              {YEARS.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button variant="outline" className="gap-2 bg-transparent">
             <Download className="h-4 w-4" />
             Exportar
@@ -156,8 +169,7 @@ export default function ReportsPage() {
             <TrendingUp className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">{formatCurrency(income)}</div>
-            <p className="text-xs text-muted-foreground mt-1">+12.5% em relação ao mês anterior</p>
+            <div className="text-2xl font-bold text-success">{formatCurrency(totalIncome)}</div>
           </CardContent>
         </Card>
 
@@ -167,8 +179,7 @@ export default function ReportsPage() {
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{formatCurrency(expenses)}</div>
-            <p className="text-xs text-muted-foreground mt-1">-3.2% em relação ao mês anterior</p>
+            <div className="text-2xl font-bold text-destructive">{formatCurrency(totalExpense)}</div>
           </CardContent>
         </Card>
 
@@ -181,8 +192,7 @@ export default function ReportsPage() {
             <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
             <p className="text-xs text-muted-foreground mt-1">
               <span className={balance >= 0 ? "text-success" : "text-destructive"}>
-                {balance >= 0 ? "+" : ""}
-                {((balance / income) * 100).toFixed(1)}%
+                {balance >= 0 ? "+" : ""}{balancePercent}%
               </span>{" "}
               de economia
             </p>
@@ -196,9 +206,7 @@ export default function ReportsPage() {
           <div className="flex items-center justify-between">
             <CardTitle>Evolução Mensal</CardTitle>
             <Select value={chartType} onValueChange={(value: any) => setChartType(value)}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="bar">Barras</SelectItem>
                 <SelectItem value="line">Linhas</SelectItem>
@@ -226,22 +234,8 @@ export default function ReportsPage() {
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="receitas"
-                    stroke="hsl(var(--success))"
-                    strokeWidth={3}
-                    name="Receitas"
-                    dot={{ fill: "hsl(var(--success))", r: 4 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="despesas"
-                    stroke="hsl(var(--destructive))"
-                    strokeWidth={3}
-                    name="Despesas"
-                    dot={{ fill: "hsl(var(--destructive))", r: 4 }}
-                  />
+                  <Line type="monotone" dataKey="receitas" stroke="hsl(var(--success))" strokeWidth={3} name="Receitas" dot={{ fill: "hsl(var(--success))", r: 4 }} />
+                  <Line type="monotone" dataKey="despesas" stroke="hsl(var(--destructive))" strokeWidth={3} name="Despesas" dot={{ fill: "hsl(var(--destructive))", r: 4 }} />
                 </LineChart>
               )}
             </ResponsiveContainer>
@@ -251,26 +245,23 @@ export default function ReportsPage() {
 
       {/* Category Charts */}
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Expenses by Category */}
         <Card>
-          <CardHeader>
-            <CardTitle>Despesas por Categoria</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Despesas por Categoria</CardTitle></CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={expensesByCategory}
-                    dataKey="value"
-                    nameKey="name"
+                    data={expensesData}
+                    dataKey="total"
+                    nameKey="category"
                     cx="50%"
                     cy="50%"
                     outerRadius={90}
-                    label={(entry) => entry.name}
+                    label={(entry) => entry.category}
                   >
-                    {expensesByCategory.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {expensesData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -285,37 +276,28 @@ export default function ReportsPage() {
               </ResponsiveContainer>
             </div>
             <div className="mt-4 space-y-2">
-              {expensesByCategory.slice(0, 4).map((item) => (
+              {expensesData.slice(0, 4).map((item) => (
                 <div key={item.category} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span>{item.name}</span>
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span>{item.category}</span>
                   </div>
-                  <span className="font-medium">{formatCurrency(item.value)}</span>
+                  <span className="font-medium">{formatCurrency(item.total)}</span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Income by Category */}
         <Card>
-          <CardHeader>
-            <CardTitle>Receitas por Categoria</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Receitas por Categoria</CardTitle></CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={incomeByCategory} layout="vertical">
+                <BarChart data={incomeData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    width={80}
-                  />
+                  <YAxis dataKey="category" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
                   <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
                     contentStyle={{
@@ -324,9 +306,9 @@ export default function ReportsPage() {
                       borderRadius: "0.5rem",
                     }}
                   />
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                    {incomeByCategory.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                  <Bar dataKey="total" radius={[0, 8, 8, 0]}>
+                    {incomeData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -336,35 +318,30 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* Detailed Breakdown */}
+      {/* Detalhamento por Categoria */}
       <Card>
-        <CardHeader>
-          <CardTitle>Detalhamento por Categoria</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Detalhamento por Categoria</CardTitle></CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {expensesByCategory.map((item) => {
-              const percentage = (item.value / expenses) * 100
+            {expensesData.map((item) => {
+              const percentage = totalExpense > 0 ? (item.total / totalExpense) * 100 : 0
               return (
                 <div key={item.category} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                      <span className="font-medium">{item.name}</span>
+                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="font-medium">{item.category}</span>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold">{formatCurrency(item.value)}</div>
+                      <div className="font-semibold">{formatCurrency(item.total)}</div>
                       <div className="text-xs text-muted-foreground">{percentage.toFixed(1)}%</div>
                     </div>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div
                       className="h-2 rounded-full transition-all"
-                      style={{
-                        width: `${percentage}%`,
-                        backgroundColor: item.color,
-                      }}
-                    ></div>
+                      style={{ width: `${percentage}%`, backgroundColor: item.color }}
+                    />
                   </div>
                 </div>
               )

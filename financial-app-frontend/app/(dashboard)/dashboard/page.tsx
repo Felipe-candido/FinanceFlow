@@ -26,6 +26,8 @@ export default function DashboardPage() {
   const expensesData: CategoryTotal[] = dashboardData?.expenses_by_category ?? []
   const recentTransactions = dashboardData?.last_transactions ?? []
   const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
 
   const handleAddTransaction = (newTransaction: Transaction) => {
     setTransactions([...(transactions ??  []), newTransaction])
