@@ -18,7 +18,7 @@ export async function getCategories(token: string){
 
 export async function getTransactions(token: string){
       const response = await fetch(`${BASE_URL}/transactions/list`,{
-           method: "GET",
+            method: "GET",
             headers: {
                   "Authorization": `Bearer ${token}`,
                   "Content-Type": "application/json",
@@ -27,6 +27,18 @@ export async function getTransactions(token: string){
       if (!response.ok) {
             throw new Error("Failed to fetch transactions data")
                   }
+
+      return await response.json()
+}
+
+export async function deleteTransaction(token:string, idTransaction: string){
+      const response = await fetch(`${BASE_URL}/transactions/delete/${idTransaction}`, {
+            method: "POST",
+            headers: {
+                  "Authorization": `Bearer ${token}`,
+                  "Content-Type": "application/json",
+            }}
+      )
 
       return await response.json()
 }

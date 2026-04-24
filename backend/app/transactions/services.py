@@ -1,4 +1,5 @@
 from datetime import datetime
+from http.client import HTTPException
 from typing import Optional
 from requests import Session
 from app.transactions.schemas import TransactionCreate
@@ -79,6 +80,23 @@ class TransactionService:
                   .all()
       
       
-      
-      
+      def delete_transaction(self, idTransaction):
+            transaction = self.db.query(Transaction)\
+                  .filter(Transaction.id == idTransaction).first()
+            
+            if not transaction:
+                  raise HTTPException(status_code=404, detail="Transaction not found")
+            
+            # salva os dados antes de deletar
+            data = {
+                  "id": transaction.id,
+                  "amount": transaction.amount,
+                  "category": transaction.category.name if transaction.category else None
+            }
+            
+            self.db.delete(transaction)
+            self.db.commit()
+            
+            return {"message": "Deleted successfully", "data": data }
+
            

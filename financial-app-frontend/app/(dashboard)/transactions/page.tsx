@@ -10,7 +10,7 @@ import { CategoryTotal } from "@/lib/data"
 import { TransactionModal } from "@/components/transaction-modal"
 import { Plus, Search, Filter, ArrowUpDown, Trash2 } from "lucide-react"
 import type { Transaction, Category } from "@/lib/data"
-import  { getCategories, getTransactions } from "@/lib/api/category"
+import  { getCategories, getTransactions, deleteTransaction } from "@/lib/api/transactions"
 import { useAuth } from "@/contexts/authProvider"
 import { get } from "http"
 
@@ -117,13 +117,19 @@ export default function TransactionsPage() {
     return filtered
   }, [transactions, searchQuery, filterType, filterCategory, sortBy, startDate, endDate])
 
+
+   const handleDeleteTransaction = async (id: string) => {
+    try{
+      await deleteTransaction(token, id)
+    }catch(error){
+      console.log("deu ruim aqui:", error)
+    }
+  }
+
   const handleAddTransaction = (newTransaction: Transaction) => {
     setTransactions([...(transactions || []) , newTransaction])
   }
 
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions((transactions || []).filter((t) => t.id !== id))
-  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {

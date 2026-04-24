@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -50,15 +50,17 @@ function getLast6Months(month?: number, year?: number) {
   return months
 }
 
+type MonthlyEntry = { month: string; receitas: number; despesas: number }
+
 export default function ReportsPage() {
   const [chartType, setChartType] = useState<"bar" | "line">("bar")
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loadingMain, setLoadingMain] = useState(false)
+  const [loadingChart, setLoadingChart] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(undefined)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined)
-
-  type MonthlyEntry = { month: string; receitas: number; despesas: number }
   const [monthlyData, setMonthlyData] = useState<MonthlyEntry[]>([])
+  const cache = useRef<Record<string, any>>({})
 
   const { token } = useAuth()
 
@@ -72,35 +74,52 @@ export default function ReportsPage() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
 
-  async function loadData(month?: number, year?: number) {
+  async function loadMainData(month?: number, year?: number) {
     if (!token) return
     try {
-      setLoading(true)
+      setLoadingMain(true)
+      const data = await getDashboardData({ token, month, year })
+      setDashboardData(data)
+    } catch (error) {
+      console.error("Error loading main data:", error)
+    } finally {
+      setLoadingMain(false)
+    }
+  }
 
+  async function loadChartData(month?: number, year?: number) {
+    if (!token) return
+    try {
+      setLoadingChart(true)
       const last6 = getLast6Months(month, year)
-
-      const [main, ...monthlyResults] = await Promise.all([
-        getDashboardData({ token, month, year }),
-        ...last6.map((m) => getDashboardData({ token, month: m.month, year: m.year })),
-      ])
-
-      setDashboardData(main)
+      const results = await Promise.all(
+        last6.map((m) => {
+          const key = `${m.month}-${m.year}`
+          if (cache.current[key]) return Promise.resolve(cache.current[key])
+          return getDashboardData({ token, month: m.month, year: m.year }).then((data) => {
+            cache.current[key] = data
+            return data
+          })
+        })
+      )
       setMonthlyData(
         last6.map((m, index) => ({
           month: MONTH_LABELS[m.month - 1],
-          receitas: monthlyResults[index]?.total_income ?? 0,
-          despesas: monthlyResults[index]?.total_expense ?? 0,
+          receitas: results[index]?.total_income ?? 0,
+          despesas: results[index]?.total_expense ?? 0,
         }))
       )
     } catch (error) {
-      console.error("Error loading dashboard data:", error)
+      console.error("Error loading chart data:", error)
     } finally {
-      setLoading(false)
+      setLoadingChart(false)
     }
   }
 
   useEffect(() => {
-    if (token) loadData(selectedMonth, selectedYear)
+    if (!token) return
+    loadMainData(selectedMonth, selectedYear)
+    loadChartData(selectedMonth, selectedYear)
   }, [token, selectedMonth, selectedYear])
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -177,7 +196,11 @@ export default function ReportsPage() {
             <TrendingUp className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">{formatCurrency(totalIncome)}</div>
+            {loadingMain ? (
+              <div className="h-8 w-32 bg-muted rounded animate-pulse" />
+            ) : (
+              <div className="text-2xl font-bold text-success">{formatCurrency(totalIncome)}</div>
+            )}
           </CardContent>
         </Card>
 
@@ -187,7 +210,11 @@ export default function ReportsPage() {
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{formatCurrency(totalExpense)}</div>
+            {loadingMain ? (
+              <div className="h-8 w-32 bg-muted rounded animate-pulse" />
+            ) : (
+              <div className="text-2xl font-bold text-destructive">{formatCurrency(totalExpense)}</div>
+            )}
           </CardContent>
         </Card>
 
@@ -197,13 +224,19 @@ export default function ReportsPage() {
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              <span className={balance >= 0 ? "text-success" : "text-destructive"}>
-                {balance >= 0 ? "+" : ""}{balancePercent}%
-              </span>{" "}
-              de economia
-            </p>
+            {loadingMain ? (
+              <div className="h-8 w-32 bg-muted rounded animate-pulse" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{formatCurrency(balance)}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <span className={balance >= 0 ? "text-success" : "text-destructive"}>
+                    {balance >= 0 ? "+" : ""}{balancePercent}%
+                  </span>{" "}
+                  de economia
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -223,31 +256,40 @@ export default function ReportsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              {chartType === "bar" ? (
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Bar dataKey="receitas" fill="hsl(var(--success))" name="Receitas" radius={[8, 8, 0, 0]} />
-                  <Bar dataKey="despesas" fill="hsl(var(--destructive))" name="Despesas" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              ) : (
-                <LineChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Line type="monotone" dataKey="receitas" stroke="hsl(var(--success))" strokeWidth={3} name="Receitas" dot={{ fill: "hsl(var(--success))", r: 4 }} />
-                  <Line type="monotone" dataKey="despesas" stroke="hsl(var(--destructive))" strokeWidth={3} name="Despesas" dot={{ fill: "hsl(var(--destructive))", r: 4 }} />
-                </LineChart>
-              )}
-            </ResponsiveContainer>
-          </div>
+          {loadingChart ? (
+            <div className="h-[350px] flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <span className="text-sm">Carregando gráfico...</span>
+              </div>
+            </div>
+          ) : (
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                {chartType === "bar" ? (
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar dataKey="receitas" fill="hsl(var(--success))" name="Receitas" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="despesas" fill="hsl(var(--destructive))" name="Despesas" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                ) : (
+                  <LineChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line type="monotone" dataKey="receitas" stroke="hsl(var(--success))" strokeWidth={3} name="Receitas" dot={{ fill: "hsl(var(--success))", r: 4 }} />
+                    <Line type="monotone" dataKey="despesas" stroke="hsl(var(--destructive))" strokeWidth={3} name="Despesas" dot={{ fill: "hsl(var(--destructive))", r: 4 }} />
+                  </LineChart>
+                )}
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -256,72 +298,86 @@ export default function ReportsPage() {
         <Card>
           <CardHeader><CardTitle>Despesas por Categoria</CardTitle></CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={expensesData}
-                    dataKey="total"
-                    nameKey="category"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label={(entry) => entry.category}
-                  >
-                    {expensesData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "0.5rem",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 space-y-2">
-              {expensesData.slice(0, 4).map((item) => (
-                <div key={item.category} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span>{item.category}</span>
-                  </div>
-                  <span className="font-medium">{formatCurrency(item.total)}</span>
+            {loadingMain ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={expensesData}
+                        dataKey="total"
+                        nameKey="category"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        label={(entry) => entry.category}
+                      >
+                        {expensesData.map((entry, index) => (
+                          <Cell key={index} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "0.5rem",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-            </div>
+                <div className="mt-4 space-y-2">
+                  {expensesData.slice(0, 4).map((item) => (
+                    <div key={item.category} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span>{item.category}</span>
+                      </div>
+                      <span className="font-medium">{formatCurrency(item.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader><CardTitle>Receitas por Categoria</CardTitle></CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={incomeData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis dataKey="category" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "0.5rem",
-                    }}
-                  />
-                  <Bar dataKey="total" radius={[0, 8, 8, 0]}>
-                    {incomeData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {loadingMain ? (
+              <div className="h-[300px] flex items-center justify-center">
+                <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              </div>
+            ) : (
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={incomeData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis dataKey="category" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={80} />
+                    <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "0.5rem",
+                      }}
+                    />
+                    <Bar dataKey="total" radius={[0, 8, 8, 0]}>
+                      {incomeData.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -330,31 +386,42 @@ export default function ReportsPage() {
       <Card>
         <CardHeader><CardTitle>Detalhamento por Categoria</CardTitle></CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {expensesData.map((item) => {
-              const percentage = totalExpense > 0 ? (item.total / totalExpense) * 100 : 0
-              return (
-                <div key={item.category} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="font-medium">{item.category}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{formatCurrency(item.total)}</div>
-                      <div className="text-xs text-muted-foreground">{percentage.toFixed(1)}%</div>
-                    </div>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full transition-all"
-                      style={{ width: `${percentage}%`, backgroundColor: item.color }}
-                    />
-                  </div>
+          {loadingMain ? (
+            <div className="space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="space-y-2">
+                  <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                  <div className="h-2 w-full bg-muted rounded animate-pulse" />
                 </div>
-              )
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {expensesData.map((item) => {
+                const percentage = totalExpense > 0 ? (item.total / totalExpense) * 100 : 0
+                return (
+                  <div key={item.category} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="font-medium">{item.category}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{formatCurrency(item.total)}</div>
+                        <div className="text-xs text-muted-foreground">{percentage.toFixed(1)}%</div>
+                      </div>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full transition-all"
+                        style={{ width: `${percentage}%`, backgroundColor: item.color }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -39,7 +39,6 @@ interface TransactionModalProps {
 export function TransactionModal({
   open,
   onOpenChange,
-  onSave,
 }: TransactionModalProps) {
   const [type, setType] = useState<"income" | "expense">("expense")
   const [amount, setAmount] = useState("")
