@@ -4,7 +4,7 @@ from app.core.dependecies import get_db
 from datetime import datetime
 from app.transactions.services import TransactionService
 from fastapi import APIRouter, Depends, HTTPException
-from app.transactions.schemas import TransactionBase, TransactionResponse
+from app.transactions.schemas import TransactionBase, TransactionResponse, TransactionUpdate
 from app.core.security import get_current_user
 
 transactions_router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -46,3 +46,15 @@ async def delete_transaction(
 
      service = TransactionService(db, current_user["sub"])
      return service.delete_transaction(transaction_id)
+
+
+@transactions_router.put("/update/{transaction_id}", response_model=TransactionResponse)
+async def update_transaction(
+     transaction_id: UUID,
+     transaction_data: TransactionUpdate,
+     db = Depends(get_db),
+     current_user: dict = Depends(get_current_user)
+     ):
+
+     service = TransactionService(db, current_user["sub"])
+     return service.update_transaction(transaction_id, transaction_data)

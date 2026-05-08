@@ -6,13 +6,23 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { CategoryTotal } from "@/lib/data"
 import { TransactionModal } from "@/components/transaction-modal"
 import { Plus, Search, Filter, ArrowUpDown, Trash2 } from "lucide-react"
 import type { Transaction, Category } from "@/lib/data"
 import  { getCategories, getTransactions, deleteTransaction } from "@/lib/api/transactions"
 import { useAuth } from "@/contexts/authProvider"
-import { get } from "http"
+
+function getDateOnly(date: string | Date) {
+  if (typeof date === "string") {
+    return date.split("T")[0]
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
 
 export default function TransactionsPage() {
   const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
@@ -21,6 +31,7 @@ export default function TransactionsPage() {
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [sortBy, setSortBy] = useState<"date" | "amount">("date")
   const [modalOpen, setModalOpen] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [categories, setCategories] = useState<Category[] | []>([])
   const { token } = useAuth()
   const [startDate, setStartDate] = useState("")
@@ -91,26 +102,17 @@ export default function TransactionsPage() {
       }
     })
 
-    function formatDate(date: string | Date) {
-      if (typeof date === "string") {
-        return date.split("T")[0]
-      }
-
-      // se for Date
-      return date.toISOString().split("T")[0]
-    }
-
     if (startDate){
       filtered = filtered.filter((t) => {
-        const transactionDate = formatDate(t.date).split("T")[0]
-        transactionDate >= startDate
+        const transactionDate = getDateOnly(t.date)
+        return transactionDate >= startDate
       })
     }
 
     if (endDate){
       filtered = filtered.filter((t) => {
-        const transactionDate = formatDate(t.date).split("T")[0]
-        transactionDate <= endDate
+        const transactionDate = getDateOnly(t.date)
+        return transactionDate <= endDate
       })
     }
 
@@ -118,16 +120,41 @@ export default function TransactionsPage() {
   }, [transactions, searchQuery, filterType, filterCategory, sortBy, startDate, endDate])
 
 
-   const handleDeleteTransaction = async (id: string) => {
+  const removeTransactionFromState = (id: string) => {
+    setTransactions((currentTransactions) =>
+      (currentTransactions || []).filter((transaction) => transaction.id !== id),
+    )
+  }
+
+  const handleDeleteTransaction = async (id: string) => {
     try{
       await deleteTransaction(token, id)
+      removeTransactionFromState(id)
     }catch(error){
       console.log("deu ruim aqui:", error)
     }
   }
 
-  const handleAddTransaction = (newTransaction: Transaction) => {
-    setTransactions([...(transactions || []) , newTransaction])
+  const handleSaveTransaction = (savedTransaction: Transaction) => {
+    setTransactions((currentTransactions) => {
+      const current = currentTransactions || []
+
+      if (savedTransaction.id && current.some((transaction) => transaction.id === savedTransaction.id)) {
+        return current.map((transaction) =>
+          transaction.id === savedTransaction.id ? savedTransaction : transaction,
+        )
+      }
+
+      return [...current, savedTransaction]
+    })
+  }
+
+  const handleModalOpenChange = (open: boolean) => {
+    setModalOpen(open)
+
+    if (!open) {
+      setSelectedTransaction(null)
+    }
   }
 
 
@@ -139,7 +166,9 @@ export default function TransactionsPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pt-BR", {
+    const [year, month, day] = getDateOnly(dateString).split("-").map(Number)
+
+    return new Date(year, month - 1, day).toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "long",
       year: "numeric",
@@ -150,7 +179,7 @@ export default function TransactionsPage() {
   const groupedTransactions = useMemo(() => {
     const groups: { [key: string]: Transaction[] } = {}
     filteredTransactions.forEach((transaction) => {
-      const dateKey = new Date(transaction.date).toISOString().split("T")[0]
+      const dateKey = getDateOnly(transaction.date)
       if (!groups[dateKey]) {
         groups[dateKey] = []
       }
@@ -167,7 +196,14 @@ export default function TransactionsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Transações</h2>
           <p className="text-muted-foreground mt-1">Gerencie todas as suas transações</p>
         </div>
-        <Button size="lg" className="gap-2" onClick={() => setModalOpen(true)}>
+        <Button
+          size="lg"
+          className="gap-2"
+          onClick={() => {
+            setSelectedTransaction(null)
+            setModalOpen(true)
+          }}
+        >
           <Plus className="h-5 w-5" />
           Nova Transação
         </Button>
@@ -269,7 +305,20 @@ export default function TransactionsPage() {
                   return (
                     <div
                       key={transaction.id}
-                      className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      className="flex cursor-pointer items-center gap-4 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setSelectedTransaction(transaction)
+                        setModalOpen(true)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault()
+                          setSelectedTransaction(transaction)
+                          setModalOpen(true)
+                        }
+                      }}
                     >
                       <div
                         className="h-12 w-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
@@ -296,7 +345,10 @@ export default function TransactionsPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteTransaction((transaction.id) || "")}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleDeleteTransaction((transaction.id) || "")
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -311,8 +363,13 @@ export default function TransactionsPage() {
       </div>
 
       {/* Transaction Modal */}
-      <TransactionModal open={modalOpen} onOpenChange={setModalOpen} onSave={handleAddTransaction} />
+      <TransactionModal
+        open={modalOpen}
+        onOpenChange={handleModalOpenChange}
+        onSave={handleSaveTransaction}
+        onDelete={removeTransactionFromState}
+        editingTransaction={selectedTransaction}
+      />
     </div>
   )
 }
-

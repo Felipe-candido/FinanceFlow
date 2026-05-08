@@ -22,6 +22,7 @@ class TransactionUpdate(BaseModel):
     type: Optional[str] = None
     date: Optional[datetime] = None
     category_id: Optional[UUID] = None
+    amount: Optional[float] = None
 
 
 class TransactionResponse(TransactionBase):

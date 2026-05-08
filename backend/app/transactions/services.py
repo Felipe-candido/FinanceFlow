@@ -1,8 +1,8 @@
 from datetime import datetime
-from http.client import HTTPException
 from typing import Optional
+from fastapi import HTTPException
 from requests import Session
-from app.transactions.schemas import TransactionCreate
+from app.transactions.schemas import TransactionCreate, TransactionUpdate
 from app.transactions.models import Transaction
 from app.users.models import User
 from app.categories.models import Category
@@ -82,7 +82,10 @@ class TransactionService:
       
       def delete_transaction(self, idTransaction):
             transaction = self.db.query(Transaction)\
-                  .filter(Transaction.id == idTransaction).first()
+                  .filter(
+                        Transaction.id == idTransaction,
+                        Transaction.user_id == self.user.id
+                  ).first()
             
             if not transaction:
                   raise HTTPException(status_code=404, detail="Transaction not found")
@@ -99,4 +102,46 @@ class TransactionService:
             
             return {"message": "Deleted successfully", "data": data }
 
-           
+
+      def update_transaction(self, idTransaction, data: TransactionUpdate) -> Transaction:
+            transaction = self.db.query(Transaction)\
+                  .filter(
+                        Transaction.id == idTransaction,
+                        Transaction.user_id == self.user.id
+                  ).first()
+            
+            if not transaction:
+                  raise HTTPException(status_code=404, detail="Transaction not found")
+
+            if data.category_id is not None:
+                  category = self.db.query(Category).filter(
+                        Category.id == data.category_id,
+                        or_(
+                              Category.user_id == self.user.id,
+                              Category.is_default == True
+                        )
+                  ).first()
+
+                  if not category:
+                        raise HTTPException(status_code=404, detail="Category not found")
+
+                  transaction.category_id = category.id
+
+            if data.description is not None:
+                  transaction.description = data.description
+
+            if data.type is not None:
+                  transaction.type = data.type
+
+            if data.date is not None:
+                  transaction.date = data.date
+
+            if data.amount is not None:
+                  transaction.amount = data.amount
+
+            self.db.commit()
+            self.db.refresh(transaction)
+            
+            return transaction
+
+          
