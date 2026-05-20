@@ -39,9 +39,7 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      const res = await authService.register({ name, email, password })
-      console.log("REGISTER RESPONSE:", res)
-
+      await authService.register({ name, email, password })
       router.push("/login")
     } catch (err) {
       console.error("REGISTER ERROR:", err)

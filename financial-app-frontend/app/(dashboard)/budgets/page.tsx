@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { BudgetModal, type Budget } from "@/components/budget-modal"
 import type { Category, CategoryTotal, DashboardResponse } from "@/lib/data"
+import { createBudget, deleteBudget, getBudgets, updateBudget } from "@/lib/api/budgets"
 import { getCategories } from "@/lib/api/transactions"
 import { getDashboardData } from "@/lib/api/reports"
 import { useAuth } from "@/contexts/authProvider"
@@ -24,7 +25,6 @@ import {
   Wallet,
 } from "lucide-react"
 
-const STORAGE_KEY = "financeflow:budgets:v1"
 const SAVINGS_GOAL_PERCENT = 20
 const MAX_HEALTHY_USAGE = 80
 
@@ -79,29 +79,8 @@ export default function BudgetsPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [budgetsLoaded, setBudgetsLoaded] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<Budget | undefined>(undefined)
-
-  useEffect(() => {
-    try {
-      const storedBudgets = window.localStorage.getItem(STORAGE_KEY)
-
-      if (storedBudgets) {
-        setBudgets(JSON.parse(storedBudgets))
-      }
-    } catch (error) {
-      console.error("Failed to load stored budgets", error)
-    } finally {
-      setBudgetsLoaded(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!budgetsLoaded) return
-
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(budgets))
-  }, [budgets, budgetsLoaded])
 
   useEffect(() => {
     async function loadBudgetContext() {
@@ -109,13 +88,21 @@ export default function BudgetsPage() {
 
       try {
         setLoading(true)
-        const [categoriesData, dashboard] = await Promise.all([
+        const [categoriesData, dashboard, budgetsData] = await Promise.all([
           getCategories(token),
           getDashboardData({ token }),
+          getBudgets(token),
         ])
 
-        setCategories(categoriesData)
+        setCategories(categoriesData as Category[])
         setDashboardData(dashboard)
+        setBudgets(
+          budgetsData.map((budget) => ({
+            id: budget.id,
+            categoryId: budget.category_id,
+            limit: Number(budget.limit),
+          })),
+        )
       } catch (error) {
         console.error("Failed to load budget data", error)
       } finally {
@@ -215,17 +202,32 @@ export default function BudgetsPage() {
     return "O plano esta controlado. Acompanhe a meta de reserva para fechar o mes com folga."
   }, [balance, budgets.length, exceededBudgets, savingsGoal, warningBudgets])
 
-  const handleSaveBudget = (budget: Budget) => {
+  const handleSaveBudget = async (budget: Budget) => {
+    if (!token) return
+
+    const payload = {
+      category_id: budget.categoryId,
+      limit: budget.limit,
+    }
+    const savedBudget = editingBudget
+      ? await updateBudget(token, budget.id, payload)
+      : await createBudget(token, payload)
+    const nextBudget = {
+      id: savedBudget.id,
+      categoryId: savedBudget.category_id,
+      limit: Number(savedBudget.limit),
+    }
+
     setBudgets((currentBudgets) => {
-      const exists = currentBudgets.some((currentBudget) => currentBudget.id === budget.id)
+      const exists = currentBudgets.some((currentBudget) => currentBudget.id === nextBudget.id)
 
       if (exists) {
         return currentBudgets.map((currentBudget) =>
-          currentBudget.id === budget.id ? budget : currentBudget,
+          currentBudget.id === nextBudget.id ? nextBudget : currentBudget,
         )
       }
 
-      return [...currentBudgets, budget]
+      return [...currentBudgets, nextBudget]
     })
 
     setEditingBudget(undefined)
@@ -236,7 +238,9 @@ export default function BudgetsPage() {
     setModalOpen(true)
   }
 
-  const handleDeleteBudget = (id: string) => {
+  const handleDeleteBudget = async (id: string) => {
+    if (!token) return
+    await deleteBudget(token, id)
     setBudgets((currentBudgets) => currentBudgets.filter((budget) => budget.id !== id))
   }
 

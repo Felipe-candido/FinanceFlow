@@ -3,8 +3,6 @@
 import { Button } from "@/components/ui/button"
 import { Bell, Search } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { authService } from "@/lib/auth"
-import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/authProvider"
 
 

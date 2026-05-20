@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
+import { getApiUrl } from "@/lib/api/client"
 import { supabase } from "@/lib/supabase/client"
 
 type User = {
@@ -19,17 +20,16 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  token: ""
+  token: "",
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [token, setToken] = useState<string>("")
+  const [token, setToken] = useState("")
 
   useEffect(() => {
-    async function loadUser(session: any) {
-
+    async function loadUser(session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) {
       if (!session) {
         setUser(null)
         setLoading(false)
@@ -37,20 +37,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const res = await fetch("http://localhost:8000/auth/me", {
+        const res = await fetch(getApiUrl("/auth/me"), {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
         })
 
-        if (res.ok) {
-          const userData = await res.json()
-          setUser(userData)
-        } else {
-          setUser(null)
-        }
+        setUser(res.ok ? await res.json() : null)
       } catch (error) {
-        console.error("Erro ao buscar usuário:", error)
+        console.error("Failed to load user:", error)
         setUser(null)
       } finally {
         setLoading(false)
@@ -58,16 +53,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.access_token) {
-        setToken(session.access_token)
-      }
+      setToken(session?.access_token || "")
       loadUser(session)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("Evento de Auth:", event)
-
         if (
           event === "SIGNED_IN" ||
           event === "TOKEN_REFRESHED" ||
@@ -82,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setToken("")
           setLoading(false)
         }
-      }
+      },
     )
 
     return () => {

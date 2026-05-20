@@ -27,7 +27,7 @@ export interface Budget {
 interface BudgetModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (budget: Budget) => void
+  onSave: (budget: Budget) => void | Promise<void>
   categories: Category[]
   usedCategoryIds: string[]
   editingBudget?: Budget
@@ -67,7 +67,7 @@ export function BudgetModal({
 
     setLoading(true)
 
-    onSave({
+    await onSave({
       id: editingBudget?.id ?? globalThis.crypto?.randomUUID?.() ?? Date.now().toString(),
       categoryId,
       limit: Number.parseFloat(limit),

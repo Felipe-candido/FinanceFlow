@@ -1,4 +1,5 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL
+import { apiFetch } from "@/lib/api/client"
+import type { Category, Transaction } from "@/lib/data"
 
 type TransactionPayload = {
       date: string
@@ -8,83 +9,56 @@ type TransactionPayload = {
       description: string
 }
 
-export async function getCategories(token: string){
-      const response = await fetch(`${BASE_URL}/categories/list`,{
-            method: "GET",
-            headers: {
-                  "Authorization": `Bearer ${token}`,
-                  "Content-Type": "application/json",
-            }
-      })
-
-      if (!response.ok) {
-            throw new Error("Failed to fetch categories data")
-                  }
-
-      return await response.json()
+type CategoryPayload = {
+      name: string
+      type: "income" | "expense"
+      color?: string
 }
 
-export async function getTransactions(token: string){
-      const response = await fetch(`${BASE_URL}/transactions/list`,{
-            method: "GET",
-            headers: {
-                  "Authorization": `Bearer ${token}`,
-                  "Content-Type": "application/json",
-            }
-      })
-      if (!response.ok) {
-            throw new Error("Failed to fetch transactions data")
-                  }
-
-      return await response.json()
+export async function getCategories(token: string) {
+      return apiFetch<Category[]>("/categories/list", token)
 }
 
-export async function createTransaction(token: string, transaction: TransactionPayload){
-      const response = await fetch(`${BASE_URL}/transactions/add`,{
+export async function getTransactions(token: string) {
+      return apiFetch<Transaction[]>("/transactions/list", token)
+}
+
+export async function createTransaction(token: string, transaction: TransactionPayload) {
+      return apiFetch<Transaction>("/transactions/add", token, {
             method: "POST",
-            headers: {
-                  "Authorization": `Bearer ${token}`,
-                  "Content-Type": "application/json",
-            },
             body: JSON.stringify(transaction),
       })
-
-      if (!response.ok) {
-            throw new Error("Failed to create transaction")
-      }
-
-      return await response.json()
 }
 
-export async function updateTransaction(token: string, idTransaction: string, transaction: TransactionPayload){
-      const response = await fetch(`${BASE_URL}/transactions/update/${idTransaction}`,{
+export async function updateTransaction(token: string, idTransaction: string, transaction: TransactionPayload) {
+      return apiFetch<Transaction>(`/transactions/update/${idTransaction}`, token, {
             method: "PUT",
-            headers: {
-                  "Authorization": `Bearer ${token}`,
-                  "Content-Type": "application/json",
-            },
             body: JSON.stringify(transaction),
       })
-
-      if (!response.ok) {
-            throw new Error("Failed to update transaction")
-      }
-
-      return await response.json()
 }
 
-export async function deleteTransaction(token:string, idTransaction: string){
-      const response = await fetch(`${BASE_URL}/transactions/delete/${idTransaction}`, {
+export async function deleteTransaction(token:string, idTransaction: string) {
+      return apiFetch<{ message: string }>(`/transactions/${idTransaction}`, token, {
+            method: "DELETE",
+      })
+}
+
+export async function createCategory(token: string, category: CategoryPayload) {
+      return apiFetch<Category>("/categories", token, {
             method: "POST",
-            headers: {
-                  "Authorization": `Bearer ${token}`,
-                  "Content-Type": "application/json",
-            }}
-      )
+            body: JSON.stringify(category),
+      })
+}
 
-      if (!response.ok) {
-            throw new Error("Failed to delete transaction")
-      }
+export async function updateCategory(token: string, id: string, category: Partial<CategoryPayload>) {
+      return apiFetch<Category>(`/categories/${id}`, token, {
+            method: "PUT",
+            body: JSON.stringify(category),
+      })
+}
 
-      return await response.json()
+export async function deleteCategory(token: string, id: string) {
+      return apiFetch<{ message: string }>(`/categories/${id}`, token, {
+            method: "DELETE",
+      })
 }

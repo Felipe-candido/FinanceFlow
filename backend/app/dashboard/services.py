@@ -34,7 +34,8 @@ class DashboardService:
         )
 
         if category is not None:
-            stmt = stmt.where(Transaction.category == category)
+            stmt = stmt.join(Category, Transaction.category_id == Category.id)
+            stmt = stmt.where(Category.name == category)
 
         result = self.db.execute(stmt).scalar_one()
 
@@ -68,6 +69,7 @@ class DashboardService:
                 Transaction.date.between(start_date, end_date),
             )
             .group_by(Category.name, Category.color)
+            .order_by(func.coalesce(func.sum(Transaction.amount), 0).desc())
         )
 
         result = self.db.execute(stmt).mappings().all()

@@ -21,6 +21,15 @@ export interface Category {
   is_default: boolean
 }
 
+export interface BudgetResponse {
+  id: string
+  category_id: string
+  limit: number
+  category: Category
+  created_at: string
+  updated_at: string
+}
+
 export type DashboardResponse = {
   total_income: number
   total_expense: number

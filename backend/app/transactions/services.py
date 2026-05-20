@@ -1,31 +1,33 @@
 from datetime import datetime
 from typing import Optional
 from fastapi import HTTPException
-from requests import Session
+from sqlalchemy.orm import Session
 from app.transactions.schemas import TransactionCreate, TransactionUpdate
 from app.transactions.models import Transaction
 from app.users.models import User
 from app.categories.models import Category
-from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 
 class TransactionService:
       def __init__(self, db: Session, user_id: str):
         self.db = db
         self.user = db.get(User, user_id)
+        if not self.user:
+              raise HTTPException(status_code=404, detail="User not found")
 
       def create_transaction(self, data: TransactionCreate) -> Transaction:
+            self._validate_type(data.type)
+            if data.category_id is None:
+                  raise HTTPException(status_code=422, detail="Category is required")
 
             category = self.db.query(Category).filter(
                   Category.id == data.category_id,
-                  or_(
-                        Category.user_id == self.user.id,
-                        Category.is_default == True
-                  )
+                  Category.user_id == self.user.id,
+                  Category.type == data.type,
             ).first()
 
             if not category:
-                raise ValueError("Category not found")
+                raise HTTPException(status_code=404, detail="Category not found")
 
             new_transaction = Transaction(
                   description = data.description,
@@ -113,13 +115,16 @@ class TransactionService:
             if not transaction:
                   raise HTTPException(status_code=404, detail="Transaction not found")
 
+            if data.type is not None:
+                  self._validate_type(data.type)
+                  transaction.type = data.type
+
             if data.category_id is not None:
+                  category_type = data.type or transaction.type
                   category = self.db.query(Category).filter(
                         Category.id == data.category_id,
-                        or_(
-                              Category.user_id == self.user.id,
-                              Category.is_default == True
-                        )
+                        Category.user_id == self.user.id,
+                        Category.type == category_type,
                   ).first()
 
                   if not category:
@@ -129,9 +134,6 @@ class TransactionService:
 
             if data.description is not None:
                   transaction.description = data.description
-
-            if data.type is not None:
-                  transaction.type = data.type
 
             if data.date is not None:
                   transaction.date = data.date
@@ -143,5 +145,10 @@ class TransactionService:
             self.db.refresh(transaction)
             
             return transaction
+
+      @staticmethod
+      def _validate_type(type_: str) -> None:
+            if type_ not in {"income", "expense"}:
+                  raise HTTPException(status_code=422, detail="Invalid transaction type")
 
           

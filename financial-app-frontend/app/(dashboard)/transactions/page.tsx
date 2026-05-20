@@ -42,7 +42,6 @@ export default function TransactionsPage() {
     
     try{
       const data = await getCategories(token)
-      console.log("CATEGORIES", data)
 
       setCategories(data)
     
@@ -56,7 +55,6 @@ export default function TransactionsPage() {
 
     try {
       const data = await getTransactions(token)
-      console.log("TRANSACTIONS", data)
       setTransactions(data)
     } catch (error) {
       console.error("Failed to load transactions", error)
@@ -131,7 +129,7 @@ export default function TransactionsPage() {
       await deleteTransaction(token, id)
       removeTransactionFromState(id)
     }catch(error){
-      console.log("deu ruim aqui:", error)
+      console.error("Failed to delete transaction:", error)
     }
   }
 

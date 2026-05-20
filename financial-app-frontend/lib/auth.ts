@@ -1,3 +1,4 @@
+import { getApiUrl } from "@/lib/api/client"
 import { supabase } from "./supabase/client"
 
 type UserData = {
@@ -6,64 +7,57 @@ type UserData = {
   password: string
 }
 
-// Simulate API delay
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+async function syncBackendUser(accessToken?: string) {
+  if (!accessToken) return
 
+  await fetch(getApiUrl("/auth/sync"), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+}
 
 export const authService = {
-
   async register({ name, email, password }: UserData) {
-
-    // CRIA USUARIO NO SUPABASE AUTH
     const { data, error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: { name },
+      },
     })
 
     if (error) throw error
-    if (!data.user) throw new Error("USER NOT CREATED")
+    if (!data.user) throw new Error("User not created")
 
-    // CRIA O PERFIL COM OS DADOS ADICIONAIS
-    const { error: profileError } = await supabase
-      .from("users")
-      .insert({
-        id: data.user.id,
-        name: name,
-        email: email,
-      })
-
-    if (profileError) throw profileError
-
-    console.log("USER CREATED:", data.user)
+    await syncBackendUser(data.session?.access_token)
 
     return data.user
   },
-
 
   async login(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      password
+      password,
     })
 
     if (error) throw error
 
-    console.log("USER LOGGED IN:", data.user)
+    await syncBackendUser(data.session?.access_token)
+
     return data.user
   },
-
 
   async logout() {
     await supabase.auth.signOut()
   },
-
 
   async getUser() {
     const { data, error } = await supabase.auth.getUser()
     if (error) return null
     return data.user
   },
-
 
   async getProfile(userId: string) {
     const { data, error } = await supabase
@@ -72,11 +66,15 @@ export const authService = {
       .eq("id", userId)
       .single()
 
-    console.log("USER PROFILE:", data)
-
     if (error) throw error
     return data
-  }
+  },
 
+  async resetPassword(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    })
 
+    if (error) throw error
+  },
 }

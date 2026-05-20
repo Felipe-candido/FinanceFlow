@@ -1,4 +1,4 @@
-const BASE_URL = `${process.env.NEXT_PUBLIC_API_URL}/dashboard/summary`
+import { getApiUrl } from "@/lib/api/client"
 
 export async function getDashboardData(params: {
   token: string
@@ -32,8 +32,8 @@ export async function getDashboardData(params: {
 
   const url =
     searchParams.toString().length > 0
-      ? `${BASE_URL}?${searchParams.toString()}`
-      : BASE_URL
+      ? `${getApiUrl("/dashboard/summary")}?${searchParams.toString()}`
+      : getApiUrl("/dashboard/summary")
 
   const response = await fetch(url, {
     method: "GET",

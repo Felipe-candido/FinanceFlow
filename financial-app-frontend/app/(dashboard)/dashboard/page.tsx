@@ -8,26 +8,20 @@ import { Progress } from "@/components/ui/progress"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
 import { useState, useEffect } from "react"
 import { TransactionModal } from "@/components/transaction-modal"
-import type { Transaction, Category } from "@/lib/data"
+import type { Transaction } from "@/lib/data"
 import { getDashboardData } from '@/lib/api/dashboard'
 import { useAuth } from "@/contexts/authProvider"
 import { CategoryTotal } from "@/lib/data"
 import { DashboardResponse } from "@/lib/data"
 
-console.log("Dashboard renderizou")
-
 export default function DashboardPage() {
-  const currentMonth = new Date().getMonth()
-  const currentYear = new Date().getFullYear()
   const [modalOpen, setModalOpen] = useState(false)
   const { token } = useAuth()
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const expensesData: CategoryTotal[] = dashboardData?.expenses_by_category ?? []
   const recentTransactions = dashboardData?.last_transactions ?? []
   const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
 
   const handleAddTransaction = (newTransaction: Transaction) => {
     setTransactions([...(transactions ??  []), newTransaction])
@@ -40,7 +34,6 @@ export default function DashboardPage() {
       setLoading(true)
 
       const data = await getDashboardData({token})
-      console.log("DASHBOARD DATA:", data)
 
       setDashboardData(data)
     

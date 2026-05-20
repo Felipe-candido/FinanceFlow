@@ -2,18 +2,12 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { authService } from "@/lib/auth"
 
 export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    // const user = authService.getCurrentUser()
-    // if (user) {
-    //   router.push("/dashboard")
-    // } else {
-      router.push("/login")
-    // }
+    router.push("/login")
   }, [router])
 
   return (

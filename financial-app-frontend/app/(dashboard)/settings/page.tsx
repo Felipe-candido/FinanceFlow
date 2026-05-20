@@ -13,6 +13,15 @@ import { Badge } from "@/components/ui/badge"
 import { authService } from "@/lib/auth"
 import { useAuth } from "@/contexts/authProvider"
 import { useRouter } from "next/navigation"
+import { getBudgets } from "@/lib/api/budgets"
+import { getSettings, updateSettings } from "@/lib/api/settings"
+import {
+  createCategory,
+  deleteCategory,
+  getCategories,
+  updateCategory,
+} from "@/lib/api/transactions"
+import type { Category } from "@/lib/data"
 import {
   AlertTriangle,
   Bell,
@@ -23,12 +32,14 @@ import {
   Loader2,
   LogOut,
   Moon,
-  PiggyBank,
+  Pencil,
+  Plus,
   Save,
   Shield,
   Smartphone,
   Sun,
   Target,
+  Trash2,
   User,
   WalletCards,
 } from "lucide-react"
@@ -74,6 +85,7 @@ const navItems = [
   { id: "profile", label: "Perfil", icon: User },
   { id: "preferences", label: "Preferencias", icon: Globe },
   { id: "finance", label: "Financas", icon: WalletCards },
+  { id: "categories", label: "Categorias", icon: Target },
   { id: "notifications", label: "Alertas", icon: Bell },
   { id: "privacy", label: "Dados", icon: Shield },
 ]
@@ -91,29 +103,60 @@ function getInitials(name?: string, email?: string) {
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [confirmClearData, setConfirmClearData] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [categoryName, setCategoryName] = useState("")
+  const [categoryType, setCategoryType] = useState<"income" | "expense">("expense")
+  const [categoryColor, setCategoryColor] = useState("#6b7280")
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
 
   useEffect(() => {
-    try {
-      const storedSettings = window.localStorage.getItem(SETTINGS_KEY)
+    async function loadSettings() {
+      try {
+        if (token) {
+          const response = await getSettings<Settings>(token)
+          setSettings((current) => ({
+            ...current,
+            ...response.data,
+          }))
+          return
+        }
 
-      if (storedSettings) {
-        setSettings((current) => ({
-          ...current,
-          ...JSON.parse(storedSettings),
-        }))
+        const storedSettings = window.localStorage.getItem(SETTINGS_KEY)
+        if (storedSettings) {
+          setSettings((current) => ({
+            ...current,
+            ...JSON.parse(storedSettings),
+          }))
+        }
+      } catch (error) {
+        console.error("Failed to load settings", error)
+      } finally {
+        setSettingsLoaded(true)
       }
-    } catch (error) {
-      console.error("Failed to load settings", error)
-    } finally {
-      setSettingsLoaded(true)
     }
-  }, [])
+
+    loadSettings()
+  }, [token])
+
+  useEffect(() => {
+    async function loadCategories() {
+      if (!token) return
+
+      try {
+        setCategories(await getCategories(token))
+      } catch (error) {
+        console.error("Failed to load categories", error)
+      }
+    }
+
+    loadCategories()
+  }, [token])
 
   useEffect(() => {
     if (!settingsLoaded || settings.displayName) return
@@ -128,7 +171,6 @@ export default function SettingsPage() {
     if (!settingsLoaded) return
 
     document.documentElement.classList.toggle("dark", settings.theme === "dark")
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   }, [settings, settingsLoaded])
 
   const profileName = settings.displayName || user?.name || "Usuario"
@@ -162,11 +204,15 @@ export default function SettingsPage() {
   }
 
   const handleSaveSettings = async () => {
+    if (!token) return
+
     setSaving(true)
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
-    await new Promise((resolve) => setTimeout(resolve, 400))
-    setSaving(false)
-    setSaved(true)
+    try {
+      await updateSettings(token, settings)
+      setSaved(true)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleLogout = async () => {
@@ -174,11 +220,12 @@ export default function SettingsPage() {
     router.push("/login")
   }
 
-  const handleExportData = () => {
+  const handleExportData = async () => {
+    const budgets = token ? await getBudgets(token) : JSON.parse(window.localStorage.getItem(BUDGETS_KEY) || "[]")
     const payload = {
       exported_at: new Date().toISOString(),
       settings,
-      budgets: JSON.parse(window.localStorage.getItem(BUDGETS_KEY) || "[]"),
+      budgets,
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json;charset=utf-8",
@@ -192,7 +239,7 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const handleClearLocalData = () => {
+  const handleClearLocalData = async () => {
     if (!confirmClearData) {
       setConfirmClearData(true)
       return
@@ -200,6 +247,9 @@ export default function SettingsPage() {
 
     window.localStorage.removeItem(SETTINGS_KEY)
     window.localStorage.removeItem(BUDGETS_KEY)
+    if (token) {
+      await updateSettings(token, defaultSettings)
+    }
     setSettings(defaultSettings)
     setConfirmClearData(false)
     setSaved(false)
@@ -207,6 +257,52 @@ export default function SettingsPage() {
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  const resetCategoryForm = () => {
+    setCategoryName("")
+    setCategoryType("expense")
+    setCategoryColor("#6b7280")
+    setEditingCategoryId(null)
+  }
+
+  const handleSaveCategory = async () => {
+    if (!token || !categoryName.trim()) return
+
+    const payload = {
+      name: categoryName.trim(),
+      type: categoryType,
+      color: categoryColor,
+    }
+    const savedCategory = editingCategoryId
+      ? await updateCategory(token, editingCategoryId, payload)
+      : await createCategory(token, payload)
+
+    setCategories((current) => {
+      const exists = current.some((category) => category.id === savedCategory.id)
+      if (exists) {
+        return current.map((category) => category.id === savedCategory.id ? savedCategory : category)
+      }
+      return [...current, savedCategory]
+    })
+    resetCategoryForm()
+  }
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategoryId(category.id)
+    setCategoryName(category.name)
+    setCategoryType(category.type)
+    setCategoryColor(category.color || "#6b7280")
+  }
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!token) return
+
+    await deleteCategory(token, categoryId)
+    setCategories((current) => current.filter((category) => category.id !== categoryId))
+    if (editingCategoryId === categoryId) {
+      resetCategoryForm()
+    }
   }
 
   return (
@@ -408,6 +504,75 @@ export default function SettingsPage() {
                     onChange={(event) => updateSetting("monthStartDay", event.target.value)}
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card id="categories" className="scroll-mt-6">
+            <CardHeader>
+              <CardTitle>Categorias</CardTitle>
+              <CardDescription>Organize receitas e despesas usadas nas transacoes</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-3 md:grid-cols-[1fr_160px_88px_auto]">
+                <Input
+                  value={categoryName}
+                  placeholder="Nome da categoria"
+                  onChange={(event) => setCategoryName(event.target.value)}
+                />
+                <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expense">Despesa</SelectItem>
+                    <SelectItem value="income">Receita</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="color"
+                  value={categoryColor}
+                  onChange={(event) => setCategoryColor(event.target.value)}
+                  aria-label="Cor da categoria"
+                />
+                <div className="flex gap-2">
+                  {editingCategoryId && (
+                    <Button type="button" variant="outline" onClick={resetCategoryForm}>
+                      Cancelar
+                    </Button>
+                  )}
+                  <Button type="button" className="gap-2" onClick={handleSaveCategory}>
+                    <Plus className="h-4 w-4" />
+                    {editingCategoryId ? "Salvar" : "Adicionar"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {categories.map((category) => (
+                  <div key={category.id} className="flex items-center gap-3 rounded-lg border p-3">
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: category.color }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{category.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {category.type === "income" ? "Receita" : "Despesa"}
+                        {category.is_default ? " padrao" : ""}
+                      </p>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => handleEditCategory(category)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteCategory(category.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

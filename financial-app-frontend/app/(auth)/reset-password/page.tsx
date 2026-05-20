@@ -25,7 +25,7 @@ export default function ResetPasswordPage() {
     try {
       await authService.resetPassword(email)
       setSuccess(true)
-    } catch (err) {
+    } catch {
       setError("Erro ao enviar email de recuperação")
     } finally {
       setLoading(false)
