@@ -45,7 +45,7 @@ class Settings:
         self.supabase_project_url = supabase_project_url.rstrip("/")
         self.cors_origins = _get_list(
             "CORS_ORIGINS",
-            ["http://localhost:3000", "http://localhost:3001"],
+            ["finance-flow-mu-sooty.vercel.app", "http://localhost:3001"],
         )
         self.sql_echo = _get_bool("SQL_ECHO", False)
 
