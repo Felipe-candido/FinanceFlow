@@ -11,6 +11,13 @@ from app.settings.routes import settings_router
 app = FastAPI()
 settings = get_settings()
 
+# --------------------
+# HEALTH CHECK
+# --------------------
+@app.get("/healthz")
+def health():
+    return {"status": "ok"}
+
 
 # --------------------
 # CORS CONFIGURATION
