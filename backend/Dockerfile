@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copia a aplicação
 COPY . /app
 
+EXPOSE 8000
 # O Render injeta a variável $PORT. 
 # O uso do ${PORT:-8000} faz com que rode na 8000 localmente, mas no Render use a porta certa.
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers
+CMD alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers
