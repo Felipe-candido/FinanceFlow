@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
 import { useState, useEffect } from "react"
 import { TransactionModal } from "@/components/transaction-modal"
+import { ChatWidget } from "@/components/chat_widget"
 import type { Transaction } from "@/lib/data"
 import { getDashboardData } from '@/lib/api/dashboard'
 import { useAuth } from "@/contexts/authProvider"
@@ -267,6 +268,9 @@ export default function DashboardPage() {
 
       {/* Transaction Modal */}
       <TransactionModal open={modalOpen} onOpenChange={setModalOpen} onSave={handleAddTransaction} />
+
+      {/* MODAL DO CHAT DO AGENTE */}
+      <ChatWidget onTransactionAdded={loadData} />
     </div>
   )
 }

@@ -1,6 +1,5 @@
 {
       "python.analysis.extraPaths": [
             "./backend/app"
-      ],
-      "python-envs.pythonProjects": []
+      ]
 }

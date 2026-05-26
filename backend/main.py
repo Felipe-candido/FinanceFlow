@@ -7,6 +7,7 @@ from app.dashboard.routers import dashboard_router
 from app.categories.routes import category_router
 from app.budgets.routes import budgets_router
 from app.settings.routes import settings_router
+from app.agente_ia.router import router as ai_router
 
 app = FastAPI()
 settings = get_settings()
@@ -41,3 +42,4 @@ app.include_router(dashboard_router)
 app.include_router(category_router)
 app.include_router(budgets_router)
 app.include_router(settings_router)
+app.include_router(ai_router)

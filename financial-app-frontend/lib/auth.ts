@@ -23,13 +23,15 @@ export const authService = {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { name },
-      },
+      options: { data: { name } },
     })
 
     if (error) throw error
-    if (!data.user) throw new Error("User not created")
+    
+    // Se não tem usuário e não tem erro, é a proteção contra email duplicado
+    if (!data.user) {
+      throw new Error("Este email já está cadastrado ou aguardando confirmação.")
+    }
 
     await syncBackendUser(data.session?.access_token)
 
