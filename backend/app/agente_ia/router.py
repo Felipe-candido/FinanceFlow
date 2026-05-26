@@ -32,10 +32,10 @@ def chat_with_agent(
     user_metadata = token_payload.get("user_metadata", {})
     user_name = user_metadata.get("name") or user_metadata.get("full_name") or "Usuário"
 
-    # INJEÇÃO DE CALENDÁRIO
     hoje = datetime.now()
     ontem = hoje - timedelta(days=1)
     
+    # 1. PROMPT TURBINADO COM MAPEAMENTO DE PALAVRAS-CHAVE
     system_instruction = f"""
     Você é o assistente financeiro do sistema FinanceFlow.
     
@@ -45,11 +45,19 @@ def chat_with_agent(
     - Data de ONTEM: {ontem.strftime('%Y-%m-%d')}
     - Moeda: BRL
     
-    REGRAS DE AÇÃO (CRÍTICO):
-    1. Se o usuário relatar um gasto (ex: "gastei no mercado", "comprei pão"), CHAME a ferramenta 'agent_add_transaction'.
-    2. Se ele não especificar categoria, INFIRA (ex: mercado/padaria -> Alimentacao; gasolina/uber -> Transporte).
-    3. Use as datas do contexto acima para formatar o campo 'date' sempre em YYYY-MM-DD.
-    4. Nunca deixe a resposta vazia. Confirme o que foi feito.
+    REGRAS DE CATEGORIZAÇÃO (Use APENAS os nomes EXATOS abaixo no parâmetro category_name):
+    - 'Alimentacao': mercado, supermercado, padaria, restaurante, ifood, sorvete, lanche, comida.
+    - 'Transporte': gasolina, posto, uber, onibus, metro, estacionamento, pedagio.
+    - 'Saude': farmacia, remedio, medico, consulta, dentista.
+    - 'Lazer': cinema, show, netflix, spotify, jogo, bar.
+    - 'Moradia': aluguel, luz, agua, internet, condominio.
+    - 'Salario': pagamento, adiantamento, holerite.
+    - 'Outros': qualquer coisa que não se encaixe acima.
+    
+    REGRAS DE AÇÃO:
+    1. Se o usuário relatar um gasto, CHAME a ferramenta 'agent_add_transaction' usando o tipo 'expense' e tente deduzir a categoria com base nas regras acima.
+    2. Use as datas do contexto para formatar 'date' como YYYY-MM-DD.
+    3. Se a ferramenta retornar um Erro, avise o usuário qual foi o problema.
     """
     
     messages_for_llm = [SystemMessage(content=system_instruction)]
@@ -63,20 +71,27 @@ def chat_with_agent(
     available_tools = get_tools_for_user(db, user_id)
     llm_with_tools = llm.bind_tools(available_tools)
     
-    # 1. Primeira invocação
     ai_response = llm_with_tools.invoke(messages_for_llm)
     
-    # 2. Executa ferramentas se houver
     if ai_response.tool_calls:
         messages_for_llm.append(ai_response)
+        
+        # Variável para rastrear se houve erro no banco
+        ultimo_erro_ferramenta = None 
         
         for tool_call in ai_response.tool_calls:
             matched_tool = next((t for t in available_tools if t.name == tool_call["name"]), None)
             if matched_tool:
                 try:
                     tool_output = matched_tool.invoke(tool_call["args"])
+                    
+                    # Se a nossa tool manual retornou um texto com "Erro" dentro
+                    if "Erro" in str(tool_output):
+                        ultimo_erro_ferramenta = str(tool_output)
+                        
                 except Exception as e:
-                    tool_output = f"Erro na ferramenta: {str(e)}"
+                    tool_output = f"Erro na execução da ferramenta: {str(e)}"
+                    ultimo_erro_ferramenta = tool_output
                     
                 messages_for_llm.append(
                     ToolMessage(
@@ -86,19 +101,21 @@ def chat_with_agent(
                     )
                 )
         
-        # Segunda invocação (Resposta final)
         final_response = llm_with_tools.invoke(messages_for_llm)
         texto_final = extract_text(final_response.content)
         
-        # FALLBACK DE SEGURANÇA: Se ele ainda teimar em vir vazio, forçamos um texto
+        # 2. FALLBACK DINÂMICO E TRANSPARENTE
         if not texto_final.strip():
-            texto_final = "Tudo certo! Processei a sua solicitação. Posso ajudar com mais alguma coisa?"
+            if ultimo_erro_ferramenta:
+                # Se vier vazio mas a ferramenta deu erro, mostra o erro do banco!
+                texto_final = f"Ops! Tentei registrar, mas o sistema avisou: {ultimo_erro_ferramenta}"
+            else:
+                texto_final = "Processamento concluído, mas fiquei sem palavras. Posso ajudar com mais algo?"
             
         return {"role": "model", "content": texto_final}
 
-    # 3. Retorno direto
     texto_direto = extract_text(ai_response.content)
     if not texto_direto.strip():
-        texto_direto = "Não tenho certeza de como responder a isso. Pode reformular?"
+        texto_direto = "Não entendi muito bem. Pode detalhar melhor a transação que quer registrar?"
         
     return {"role": "model", "content": texto_direto}
