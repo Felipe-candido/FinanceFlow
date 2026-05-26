@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -32,13 +32,24 @@ def chat_with_agent(
     user_metadata = token_payload.get("user_metadata", {})
     user_name = user_metadata.get("name") or user_metadata.get("full_name") or "Usuário"
 
-    current_date = datetime.now().strftime("%A, %d de %B de %Y")
+    # INJEÇÃO DE CALENDÁRIO
+    hoje = datetime.now()
+    ontem = hoje - timedelta(days=1)
     
     system_instruction = f"""
     Você é o assistente financeiro do sistema FinanceFlow.
-    Contexto: Usuário {user_name}, Data {current_date}, Moeda BRL.
-    Se o usuário solicitar registrar algo, use a ferramenta 'agent_add_transaction'.
-    Se ele perguntar sobre gastos ou saldo, use 'agent_get_dashboard_summary'.
+    
+    CONTEXTO ATUAL:
+    - Usuário: {user_name}
+    - Data de HOJE: {hoje.strftime('%Y-%m-%d')}
+    - Data de ONTEM: {ontem.strftime('%Y-%m-%d')}
+    - Moeda: BRL
+    
+    REGRAS DE AÇÃO (CRÍTICO):
+    1. Se o usuário relatar um gasto (ex: "gastei no mercado", "comprei pão"), CHAME a ferramenta 'agent_add_transaction'.
+    2. Se ele não especificar categoria, INFIRA (ex: mercado/padaria -> Alimentacao; gasolina/uber -> Transporte).
+    3. Use as datas do contexto acima para formatar o campo 'date' sempre em YYYY-MM-DD.
+    4. Nunca deixe a resposta vazia. Confirme o que foi feito.
     """
     
     messages_for_llm = [SystemMessage(content=system_instruction)]
@@ -55,14 +66,18 @@ def chat_with_agent(
     # 1. Primeira invocação
     ai_response = llm_with_tools.invoke(messages_for_llm)
     
-    # 2. SE houver tool_calls, executamos e reinvocamos o LLM
+    # 2. Executa ferramentas se houver
     if ai_response.tool_calls:
         messages_for_llm.append(ai_response)
         
         for tool_call in ai_response.tool_calls:
             matched_tool = next((t for t in available_tools if t.name == tool_call["name"]), None)
             if matched_tool:
-                tool_output = matched_tool.invoke(tool_call["args"])
+                try:
+                    tool_output = matched_tool.invoke(tool_call["args"])
+                except Exception as e:
+                    tool_output = f"Erro na ferramenta: {str(e)}"
+                    
                 messages_for_llm.append(
                     ToolMessage(
                         tool_call_id=tool_call["id"],
@@ -73,7 +88,17 @@ def chat_with_agent(
         
         # Segunda invocação (Resposta final)
         final_response = llm_with_tools.invoke(messages_for_llm)
-        return {"role": "model", "content": extract_text(final_response.content)}
+        texto_final = extract_text(final_response.content)
+        
+        # FALLBACK DE SEGURANÇA: Se ele ainda teimar em vir vazio, forçamos um texto
+        if not texto_final.strip():
+            texto_final = "Tudo certo! Processei a sua solicitação. Posso ajudar com mais alguma coisa?"
+            
+        return {"role": "model", "content": texto_final}
 
-    # 3. Se NÃO houver tool_calls, retorna o que o LLM respondeu direto
-    return {"role": "model", "content": extract_text(ai_response.content)}
+    # 3. Retorno direto
+    texto_direto = extract_text(ai_response.content)
+    if not texto_direto.strip():
+        texto_direto = "Não tenho certeza de como responder a isso. Pode reformular?"
+        
+    return {"role": "model", "content": texto_direto}

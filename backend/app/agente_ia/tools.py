@@ -1,6 +1,6 @@
 ﻿import json
 from calendar import monthrange
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Literal, Optional
 from uuid import UUID
 
@@ -28,10 +28,9 @@ class AdicionarTransacaoInput(BaseModel):
     category_name: str = Field(
         ..., description="O nome da categoria (ex: Transporte, Alimentação, Salário)"
     )
-    date: Optional[datetime] = Field(
-        None, description="Data da transação no formato YYYY-MM-DD. Se omitida, usa a atual."
+    date: Optional[str] = Field(
+        None, description="Data da transação EXATAMENTE no formato YYYY-MM-DD. Se omitida, use a data de hoje."
     )
-
 class BuscarTransacoesInput(BaseModel):
     start_date: Optional[datetime] = Field(None, description="Data inicial do filtro")
     end_date: Optional[datetime] = Field(None, description="Data final do filtro")
