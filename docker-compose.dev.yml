@@ -1,0 +1,24 @@
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+    command: ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers --reload"]
+
+  frontend:
+    build:
+      context: ./financial-app-frontend
+      dockerfile: Dockerfile
+      target: dev
+    volumes:
+      - ./financial-app-frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    command: ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+
+volumes:
+  frontend_node_modules:
+  frontend_next:

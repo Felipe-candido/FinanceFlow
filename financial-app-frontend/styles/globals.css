@@ -3,6 +3,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* =========================================
+   1. TEMA GLOBAL DO SEU APP (Dashboard)
+   ========================================= */
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -37,6 +40,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Variáveis extras da Landing Page (Disponíveis globalmente) */
+  --neon-lime: #a3e635;
+  --neon-cyan: #22d3ee;
+  --forest-deep: #0a1f15;
+  --forest-medium: #143d29;
+  --forest-light: #1a4a32;
+  --forest-accent: #1f5c3d;
 }
 
 .dark {
@@ -74,9 +85,39 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+/* =========================================
+   2. TEMA ISOLADO DA LANDING PAGE
+   ========================================= */
+.theme-landing {
+  --background: #0a1f15;
+  --foreground: #f0f7f4;
+  --card: #0d2a1c;
+  --card-foreground: #f0f7f4;
+  --popover: #0d2a1c;
+  --popover-foreground: #f0f7f4;
+  --primary: #a3e635;
+  --primary-foreground: #0a1f15;
+  --secondary: #143d29;
+  --secondary-foreground: #f0f7f4;
+  --muted: #1a4a32;
+  --muted-foreground: #9cb8a8;
+  --accent: #22d3ee;
+  --accent-foreground: #0a1f15;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #1f5c3d;
+  --input: #1a4a32;
+  --ring: #a3e635;
+}
+
+/* =========================================
+   3. INJEÇÃO DE VARIÁVEIS NO TAILWIND v4
+   ========================================= */
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  
+  /* Cores Padrão */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -96,15 +137,15 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  
+  /* Gráficos */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Sidebar do App */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -113,13 +154,50 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Novas Cores da Landing Page */
+  --color-neon-lime: var(--neon-lime);
+  --color-neon-cyan: var(--neon-cyan);
+  --color-forest-deep: var(--forest-deep);
+  --color-forest-medium: var(--forest-medium);
+  --color-forest-light: var(--forest-light);
+  --color-forest-accent: var(--forest-accent);
+
+  /* Radius */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* =========================================
+   4. BASE E UTILITÁRIOS
+   ========================================= */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Classes exclusivas da Landing Page */
+  .text-gradient-neon {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#a3e635] to-[#22d3ee];
+  }
+  
+  .glow-lime {
+    box-shadow: 0 0 20px rgba(163, 230, 53, 0.4), 0 0 40px rgba(163, 230, 53, 0.2);
+  }
+  
+  .glow-cyan {
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.4), 0 0 40px rgba(34, 211, 238, 0.2);
+  }
+  
+  .border-glow {
+    border: 1px solid rgba(163, 230, 53, 0.3);
+    box-shadow: inset 0 0 20px rgba(163, 230, 53, 0.05);
   }
 }

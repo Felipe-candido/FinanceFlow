@@ -1,9 +1,17 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install deps and build
+# Install deps
 COPY package.json package-lock.json* pnpm-lock.yaml* ./
 RUN npm install
+
+FROM deps AS dev
+WORKDIR /app
+EXPOSE 3000
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+
+FROM deps AS builder
+WORKDIR /app
 COPY . .
 RUN npm run build
 

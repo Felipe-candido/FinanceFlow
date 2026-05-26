@@ -1,33 +1,29 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
-import "./globals.css"  
-import { AuthProvider } from "@/contexts/authProvider"
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next' // Só mantenha se for usar Vercel
+import './globals.css'
+// Importe seus providers aqui (ex: ThemeProvider, AuthProvider)
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const geistSans = Geist({ 
+  subsets: ["latin"],
+  variable: '--font-geist-sans'
+});
+const geistMono = Geist_Mono({ 
+  subsets: ["latin"],
+  variable: '--font-geist-mono'
+});
 
+// 1. APROVEITE O METADATA (Traduzi para ficar alinhado com sua copy)
 export const metadata: Metadata = {
-  title: "FinanceFlow - Controle Financeiro Pessoal",
-  description: "Gerencie suas finanças pessoais de forma simples e intuitiva",
-  generator: "v0.app",
+  title: 'FinanceFlow | Organize seu dinheiro em 5 minutos',
+  description: 'Descubra exatamente pra onde seu salário está indo sem planilhas, sem bagunça e sem dor de cabeça.',
   icons: {
     icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
+      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
+      { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
     ],
-    apple: "/apple-icon.png",
+    apple: '/apple-icon.png',
   },
 }
 
@@ -37,12 +33,19 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR">
-      <body className={`font-sans antialiased`}>
-        <AuthProvider>
+    // 2. APROVEITE O lang="pt-BR"
+    <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      
+      {/* 3. MANTENHA AS CLASSES LIMPAS PARA O TEMA FUNCIONAR */}
+      <body className="font-sans antialiased bg-background text-foreground">
+        
+        {/* Envolva o children com seus Providers que já existiam no projeto */}
+        {/* <ThemeProvider attribute="class" defaultTheme="system" enableSystem> */}
           {children}
-        </AuthProvider>
-        <Analytics />
+        {/* </ThemeProvider> */}
+
+        {/* 4. APROVEITE O ANALYTICS (Se for hospedar na Vercel) */}
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )
