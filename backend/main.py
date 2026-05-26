@@ -27,7 +27,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://finance-flow-git-main-felipe-candidos-projects.vercel.app/"
+        "https://finance-flow-git-main-felipe-candidos-projects.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
