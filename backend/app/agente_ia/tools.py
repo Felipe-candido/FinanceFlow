@@ -78,26 +78,29 @@ def get_tools_for_user(db: Session, user_id: UUID):
     """
 
     @tool(args_schema=AdicionarTransacaoInput)
-    def agent_add_transaction(description: str, amount: float, type: Literal["income", "expense"], category_name: str, date: Optional[datetime] = None) -> str:
+    def agent_add_transaction(description: str, amount: float, type: Literal["income", "expense"], category_name: str, date: Optional[str] = None) -> str:
         """Adiciona uma transação. Use sempre que o usuário quiser registrar um ganho ou gasto."""
         try:
             category_id = _resolve_category_id(db, user_id, category_name, type)
+            
+            # Ajuste da estrutura para a lógica de datas separadas
+            # O campo 'date' vindo da IA deve mapear para o campo de data suposta,
+            # enquanto a criação real fica a cargo do back-end.
             transaction_data = TransactionCreate(
                 description=description,
                 amount=amount,
                 type=type,
                 category_id=category_id,
-                date=date,
+                intended_date=date, # Ajuste este nome para o campo exato do seu schema Pydantic
             )
             transaction = TransactionService(db, user_id).create_transaction(transaction_data)
             result = TransactionResponse.model_validate(transaction).model_dump()
             return f"Sucesso! Transação adicionada: {json.dumps(result, default=str)}"
             
         except ValueError as e:
-            # Captura erro de categoria não encontrada e devolve pro Gemini
-            return f"Erro ao adicionar: {str(e)} Sugira ao usuário as categorias existentes ou pergunte se deseja ajustar."
+            return f"Erro ao adicionar: {str(e)} Sugira ao usuário as categorias existentes."
         except Exception as e:
-            return f"Erro interno do servidor: {str(e)}"
+            return f"Erro interno do servidor ao criar transação: {str(e)}"
 
 
     @tool(args_schema=BuscarTransacoesInput)

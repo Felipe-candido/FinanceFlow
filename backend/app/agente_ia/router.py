@@ -71,12 +71,14 @@ def chat_with_agent(
     available_tools = get_tools_for_user(db, user_id)
     llm_with_tools = llm.bind_tools(available_tools)
     
-    ai_response = llm_with_tools.invoke(messages_for_llm)
+    # 1. Primeira invocação com Try/Except
+    try:
+        ai_response = llm_with_tools.invoke(messages_for_llm)
+    except Exception as e:
+        return {"role": "model", "content": f"Desculpe, tive um problema de conexão ao processar sua mensagem: {str(e)}"}
     
     if ai_response.tool_calls:
         messages_for_llm.append(ai_response)
-        
-        # Variável para rastrear se houve erro no banco
         ultimo_erro_ferramenta = None 
         
         for tool_call in ai_response.tool_calls:
@@ -84,11 +86,8 @@ def chat_with_agent(
             if matched_tool:
                 try:
                     tool_output = matched_tool.invoke(tool_call["args"])
-                    
-                    # Se a nossa tool manual retornou um texto com "Erro" dentro
                     if "Erro" in str(tool_output):
                         ultimo_erro_ferramenta = str(tool_output)
-                        
                 except Exception as e:
                     tool_output = f"Erro na execução da ferramenta: {str(e)}"
                     ultimo_erro_ferramenta = tool_output
@@ -101,19 +100,23 @@ def chat_with_agent(
                     )
                 )
         
-        final_response = llm_with_tools.invoke(messages_for_llm)
-        texto_final = extract_text(final_response.content)
+        # 2. Segunda invocação (Resposta final) com Try/Except
+        try:
+            final_response = llm_with_tools.invoke(messages_for_llm)
+            texto_final = extract_text(final_response.content)
+        except Exception as e:
+            texto_final = f"A ação foi realizada, mas ocorreu um erro ao formular a resposta: {str(e)}"
         
-        # 2. FALLBACK DINÂMICO E TRANSPARENTE
+        # 3. FALLBACK DINÂMICO E TRANSPARENTE
         if not texto_final.strip():
             if ultimo_erro_ferramenta:
-                # Se vier vazio mas a ferramenta deu erro, mostra o erro do banco!
                 texto_final = f"Ops! Tentei registrar, mas o sistema avisou: {ultimo_erro_ferramenta}"
             else:
-                texto_final = "Processamento concluído, mas fiquei sem palavras. Posso ajudar com mais algo?"
-            
+                texto_final = "Processamento concluído. Posso ajudar com mais algo?"
+                
         return {"role": "model", "content": texto_final}
 
+    # 4. Retorno direto caso não use ferramentas
     texto_direto = extract_text(ai_response.content)
     if not texto_direto.strip():
         texto_direto = "Não entendi muito bem. Pode detalhar melhor a transação que quer registrar?"
