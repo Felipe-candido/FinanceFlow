@@ -42,6 +42,17 @@ class CategoryService:
         return new_category
 
     def list_categories(self) -> list[Category]:
+        categories = self.db.query(Category)\
+            .filter(Category.user_id == self.user.id)\
+            .order_by(Category.type.asc(), Category.name.asc())\
+            .all()
+
+        if categories:
+            return categories
+
+        ensure_default_categories(self.db, self.user.id)
+        self.db.commit()
+
         return self.db.query(Category)\
             .filter(Category.user_id == self.user.id)\
             .order_by(Category.type.asc(), Category.name.asc())\

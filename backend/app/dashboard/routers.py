@@ -2,8 +2,7 @@ import calendar
 from app.core.dependecies import get_db
 from datetime import datetime, timezone
 from app.dashboard.services import DashboardService
-from fastapi import APIRouter, Depends, HTTPException
-from app.transactions.schemas import TransactionBase, TransactionResponse
+from fastapi import APIRouter, Depends
 from app.dashboard.schemas import DashboardResponse
 from app.core.security import get_current_user
 from fastapi import Query

@@ -7,6 +7,10 @@ type TransactionPayload = {
       amount: number
       category_id: string
       description: string
+      is_recurring?: boolean
+      recurrence_interval_months?: number
+      recurrence_occurrences?: number
+      recurrence_end_date?: string
 }
 
 type CategoryPayload = {
@@ -30,7 +34,7 @@ export async function createTransaction(token: string, transaction: TransactionP
       })
 }
 
-export async function updateTransaction(token: string, idTransaction: string, transaction: TransactionPayload) {
+export async function updateTransaction(token: string, idTransaction: string, transaction: Partial<TransactionPayload>) {
       return apiFetch<Transaction>(`/transactions/update/${idTransaction}`, token, {
             method: "PUT",
             body: JSON.stringify(transaction),

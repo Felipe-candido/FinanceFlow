@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import type { CategoryTotal, DashboardResponse, Transaction } from "@/lib/data"
 import { getDashboardData } from "@/lib/api/reports"
 import { useAuth } from "@/contexts/authProvider"
+import { formatDatePtBr } from "@/lib/date"
 import {
   Bar,
   BarChart,
@@ -91,18 +92,6 @@ function getPeriodLabel(period?: Period) {
   return `${MONTHS[period.month - 1]?.label ?? ""} de ${period.year}`
 }
 
-function getDateOnly(date: string | Date) {
-  if (typeof date === "string") {
-    return date.split("T")[0]
-  }
-
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
-
-  return `${year}-${month}-${day}`
-}
-
 export default function ReportsPage() {
   const [chartType, setChartType] = useState<"bar" | "line">("bar")
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
@@ -180,10 +169,8 @@ export default function ReportsPage() {
       minimumFractionDigits: 1,
     }).format(value)
 
-  const formatDate = (date: string | Date) => {
-    const [year, month, day] = getDateOnly(date).split("-").map(Number)
-
-    return new Date(year, month - 1, day).toLocaleDateString("pt-BR", {
+  const formatDate = (date: string | Date | null) => {
+    return formatDatePtBr(date, {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -697,7 +684,7 @@ export default function ReportsPage() {
                       style={{ backgroundColor: `${transaction.category?.color ?? "#94a3b8"}30` }}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{transaction.description}</p>
+                      <p className="truncate font-medium">{transaction.description || "Sem descricao"}</p>
                       <p className="text-sm text-muted-foreground">
                         {transaction.category?.name} - {formatDate(transaction.date)}
                       </p>

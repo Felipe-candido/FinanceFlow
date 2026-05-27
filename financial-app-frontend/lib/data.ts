@@ -9,8 +9,10 @@ export interface Transaction {
   type: string
   amount: number
   category: Category
-  description: string
-  date: Date | string
+  description: string | null
+  date: Date | string | null
+  recurring_transaction_id?: string | null
+  recurrence_sequence?: number | null
 }
 
 export interface Category {
