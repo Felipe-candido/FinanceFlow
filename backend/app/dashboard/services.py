@@ -1,6 +1,7 @@
 from sqlalchemy import select, func
 from app.dashboard.schemas import DashboardResponse, DashboardPeriod
 from app.transactions.models import Transaction
+from app.transactions.services import TransactionService
 from datetime import datetime
 from enum import Enum
 from sqlalchemy.orm import joinedload
@@ -82,6 +83,7 @@ class DashboardService:
         end_date: datetime,
         category: str | None = None,
     ) -> DashboardResponse:
+        TransactionService(self.db, self.user_id).synchronize_recurring_transactions(end_date)
 
         total_income = self._get_total(
             start_date, end_date, TransactionType.INCOME, category

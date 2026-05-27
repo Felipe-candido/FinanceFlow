@@ -11,18 +11,7 @@ import { Plus, Search, Filter, ArrowUpDown, Trash2 } from "lucide-react"
 import type { Transaction, Category } from "@/lib/data"
 import  { getCategories, getTransactions, deleteTransaction } from "@/lib/api/transactions"
 import { useAuth } from "@/contexts/authProvider"
-
-function getDateOnly(date: string | Date) {
-  if (typeof date === "string") {
-    return date.split("T")[0]
-  }
-
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
-
-  return `${year}-${month}-${day}`
-}
+import { formatDatePtBr, getDateOnly } from "@/lib/date"
 
 export default function TransactionsPage() {
   const [ transactions, setTransactions] = useState<Transaction[] | null>(null)
@@ -76,8 +65,8 @@ export default function TransactionsPage() {
     if (searchQuery) {
       filtered = filtered.filter(
         (t) =>
-          t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.category.name.toLowerCase().includes(searchQuery.toLowerCase()),
+          (t.description ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (t.category?.name ?? "").toLowerCase().includes(searchQuery.toLowerCase()),
       )
     }
 
@@ -94,7 +83,12 @@ export default function TransactionsPage() {
     // Sort
     filtered.sort((a, b) => {
       if (sortBy === "date") {
-        return new Date(b.date).getTime() - new Date(a.date).getTime()
+        const dateA = getDateOnly(a.date)
+        const dateB = getDateOnly(b.date)
+        const timeA = dateA ? new Date(dateA).getTime() : 0
+        const timeB = dateB ? new Date(dateB).getTime() : 0
+
+        return timeB - timeA
       } else {
         return b.amount - a.amount
       }
@@ -103,14 +97,14 @@ export default function TransactionsPage() {
     if (startDate){
       filtered = filtered.filter((t) => {
         const transactionDate = getDateOnly(t.date)
-        return transactionDate >= startDate
+        return Boolean(transactionDate && transactionDate >= startDate)
       })
     }
 
     if (endDate){
       filtered = filtered.filter((t) => {
         const transactionDate = getDateOnly(t.date)
-        return transactionDate <= endDate
+        return Boolean(transactionDate && transactionDate <= endDate)
       })
     }
 
@@ -163,10 +157,8 @@ export default function TransactionsPage() {
     }).format(value)
   }
 
-  const formatDate = (dateString: string) => {
-    const [year, month, day] = getDateOnly(dateString).split("-").map(Number)
-
-    return new Date(year, month - 1, day).toLocaleDateString("pt-BR", {
+  const formatDate = (dateValue: string | Date | null) => {
+    return formatDatePtBr(dateValue, {
       day: "2-digit",
       month: "long",
       year: "numeric",
@@ -177,7 +169,7 @@ export default function TransactionsPage() {
   const groupedTransactions = useMemo(() => {
     const groups: { [key: string]: Transaction[] } = {}
     filteredTransactions.forEach((transaction) => {
-      const dateKey = getDateOnly(transaction.date)
+      const dateKey = getDateOnly(transaction.date) ?? "sem-data"
       if (!groups[dateKey]) {
         groups[dateKey] = []
       }
@@ -296,7 +288,9 @@ export default function TransactionsPage() {
           Object.entries(groupedTransactions).map(([date, dayTransactions]) => (
             <Card key={date}>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-muted-foreground">{formatDate(date)}</CardTitle>
+                <CardTitle className="text-base font-medium text-muted-foreground">
+                  {date === "sem-data" ? "Sem data" : formatDate(date)}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {dayTransactions.map((transaction) => {
@@ -325,7 +319,7 @@ export default function TransactionsPage() {
                         💰
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{transaction.description}</p>
+                        <p className="font-medium truncate">{transaction.description || "Sem descricao"}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-xs">
                             {transaction.category?.name}
