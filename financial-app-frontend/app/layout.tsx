@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "FinanceFlow | Organize seu dinheiro em 5 minutos",
+  title: "Rendeu | Organize seu dinheiro em 5 minutos",
   description:
     "Descubra exatamente pra onde seu salario esta indo sem planilhas, sem bagunca e sem dor de cabeca.",
   icons: {

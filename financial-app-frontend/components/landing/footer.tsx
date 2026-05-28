@@ -118,7 +118,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-16 pt-8 border-t border-[#1f5c3d]/30 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-gray-500 text-sm">
-            © {new Date().getFullYear()} FinanceFlow. Todos os direitos reservados.
+            © {new Date().getFullYear()} Rendeu. Todos os direitos reservados.
           </p>
           <div className="flex items-center gap-6">
             <span className="text-gray-500 text-sm flex items-center gap-2">

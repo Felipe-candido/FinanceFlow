@@ -6,7 +6,7 @@ const testimonials = [
   {
     name: "Marina Costa",
     role: "Empresária",
-    content: "O FinanceFlow transformou completamente minha relação com dinheiro. Agora tenho clareza total sobre para onde vai cada centavo.",
+    content: "O Rendeu transformou completamente minha relação com dinheiro. Agora tenho clareza total sobre para onde vai cada centavo.",
     rating: 5,
     avatar: "MC"
   },
@@ -34,7 +34,7 @@ const testimonials = [
   {
     name: "Ana Beatriz",
     role: "Médica",
-    content: "Com a rotina corrida, precisava de algo prático. O FinanceFlow me ajuda a manter tudo organizado sem perder tempo.",
+    content: "Com a rotina corrida, precisava de algo prático. O Rendeu me ajuda a manter tudo organizado sem perder tempo.",
     rating: 5,
     avatar: "AB"
   },
@@ -64,7 +64,7 @@ export function Testimonials() {
             <span className="text-[#22d3ee]">transformaram</span> suas finanças
           </h2>
           <p className="text-gray-400 text-lg">
-            Veja o que nossos usuários estão falando sobre a experiência com o FinanceFlow.
+            Veja o que nossos usuários estão falando sobre a experiência com o Rendeu.
           </p>
         </div>
 

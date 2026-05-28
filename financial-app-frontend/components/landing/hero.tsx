@@ -99,7 +99,7 @@ export function Hero() {
                 <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
                 <div className="w-3 h-3 rounded-full bg-green-500/80" />
                 <div className="ml-4 flex-1 h-6 bg-[#143d29] rounded-md flex items-center px-3">
-                  <span className="text-xs text-gray-500">app.financeflow.com</span>
+                  <span className="text-xs text-gray-500">app.Rendeu.com</span>
                 </div>
               </div>
               

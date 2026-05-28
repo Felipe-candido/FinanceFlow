@@ -56,7 +56,7 @@ export function Pricing() {
 
             {/* Plan Header */}
             <div className="text-center mb-8 pt-4">
-              <h3 className="text-2xl font-bold text-white mb-2">FinanceFlow Pro</h3>
+              <h3 className="text-2xl font-bold text-white mb-2">Rendeu Pro</h3>
               <p className="text-gray-400 text-sm mb-6">Tudo que você precisa para dominar suas finanças</p>
               
               <div className="flex items-baseline justify-center gap-1">

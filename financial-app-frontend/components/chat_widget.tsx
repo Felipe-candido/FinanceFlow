@@ -17,7 +17,7 @@ export function ChatWidget({ onTransactionAdded }: ChatWidgetProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "model", content: "Olá! Sou seu assistente FinanceFlow. Como posso ajudar com suas finanças hoje?" }
+    { role: "model", content: "Olá! Sou seu assistente Rendeu. Como posso ajudar com suas finanças hoje?" }
   ])
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
