@@ -453,20 +453,35 @@ export default function ReportsPage() {
                       <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend />
-                      <Bar dataKey="receitas" fill="hsl(var(--success))" name="Receitas" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="despesas" fill="hsl(var(--destructive))" name="Despesas" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="saldo" fill="hsl(var(--primary))" name="Saldo" radius={[6, 6, 0, 0]} />
+                      
+                      {/* Receitas: Verde */}
+                      <Bar dataKey="receitas" fill="#22c55e" name="Receitas" radius={[6, 6, 0, 0]} />
+                      
+                      {/* Despesas: Vermelho */}
+                      <Bar dataKey="despesas" fill="#ef4444" name="Despesas" radius={[6, 6, 0, 0]} />
+                      
+                      {/* Saldo: Lógica condicional (Azul/Laranja) */}
+                      <Bar dataKey="saldo" name="Saldo" radius={[6, 6, 0, 0]}>
+                        {monthlyData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={entry.saldo >= 0 ? "#3b82f6" : "#f97316"} 
+                          />
+                        ))}
+                      </Bar>
                     </BarChart>
                   ) : (
+                    // ... (mantenha o LineChart se desejar, ou atualize as cores lá também)
                     <LineChart data={monthlyData}>
+                      {/* Sugestão: atualize as cores das linhas para combinar */}
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="period" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend />
-                      <Line type="monotone" dataKey="receitas" stroke="hsl(var(--success))" strokeWidth={3} name="Receitas" dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="despesas" stroke="hsl(var(--destructive))" strokeWidth={3} name="Despesas" dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="saldo" stroke="hsl(var(--primary))" strokeWidth={3} name="Saldo" dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="receitas" stroke="#22c55e" strokeWidth={3} name="Receitas" dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="despesas" stroke="#ef4444" strokeWidth={3} name="Despesas" dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="saldo" stroke="#3b82f6" strokeWidth={3} name="Saldo" dot={{ r: 4 }} />
                     </LineChart>
                   )}
                 </ResponsiveContainer>
