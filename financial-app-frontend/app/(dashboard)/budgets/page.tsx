@@ -8,9 +8,16 @@ import { Badge } from "@/components/ui/badge"
 import { BudgetModal, type Budget } from "@/components/budget-modal"
 import type { Category, CategoryTotal, DashboardResponse } from "@/lib/data"
 import { createBudget, deleteBudget, getBudgets, updateBudget } from "@/lib/api/budgets"
+import { getSettings } from "@/lib/api/settings"
 import { getCategories } from "@/lib/api/transactions"
 import { getDashboardData } from "@/lib/api/reports"
 import { useAuth } from "@/contexts/authProvider"
+import {
+  defaultSettings,
+  mergeUserSettings,
+  parsePercentSetting,
+  type UserSettings,
+} from "@/lib/user-settings"
 import {
   AlertCircle,
   ArrowDownRight,
@@ -24,9 +31,6 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react"
-
-const SAVINGS_GOAL_PERCENT = 20
-const MAX_HEALTHY_USAGE = 80
 
 type BudgetStatus = "good" | "warning" | "exceeded"
 
@@ -43,9 +47,9 @@ function safePercentage(value: number, total: number) {
   return (value / total) * 100
 }
 
-function getBudgetStatus(percentage: number): BudgetStatus {
+function getBudgetStatus(percentage: number, warningPercent: number): BudgetStatus {
   if (percentage >= 100) return "exceeded"
-  if (percentage >= MAX_HEALTHY_USAGE) return "warning"
+  if (percentage >= warningPercent) return "warning"
   return "good"
 }
 
@@ -78,6 +82,7 @@ export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
+  const [userSettings, setUserSettings] = useState<UserSettings>(defaultSettings)
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<Budget | undefined>(undefined)
@@ -88,14 +93,16 @@ export default function BudgetsPage() {
 
       try {
         setLoading(true)
-        const [categoriesData, dashboard, budgetsData] = await Promise.all([
+        const [categoriesData, dashboard, budgetsData, settingsData] = await Promise.all([
           getCategories(token),
           getDashboardData({ token }),
           getBudgets(token),
+          getSettings<Partial<UserSettings>>(token),
         ])
 
         setCategories(categoriesData as Category[])
         setDashboardData(dashboard)
+        setUserSettings(mergeUserSettings(settingsData.data))
         setBudgets(
           budgetsData.map((budget) => ({
             id: budget.id,
@@ -148,6 +155,16 @@ export default function BudgetsPage() {
     return categoriesMap
   }, [categories])
 
+  const savingsGoalPercent = parsePercentSetting(
+    userSettings.savingsTargetPercent,
+    defaultSettings.savingsTargetPercent,
+  )
+  const budgetWarningPercent = parsePercentSetting(
+    userSettings.budgetWarningPercent,
+    defaultSettings.budgetWarningPercent,
+    1,
+  )
+
   const budgetViews = useMemo<BudgetView[]>(() => {
     return budgets
       .map((budget) => {
@@ -162,11 +179,11 @@ export default function BudgetsPage() {
           spent,
           remaining,
           percentage,
-          status: getBudgetStatus(percentage),
+          status: getBudgetStatus(percentage, budgetWarningPercent),
         }
       })
       .sort((a, b) => b.percentage - a.percentage)
-  }, [budgets, categoryById, expensesByCategory])
+  }, [budgetWarningPercent, budgets, categoryById, expensesByCategory])
 
   const totalBudget = budgetViews.reduce((sum, budget) => sum + budget.limit, 0)
   const totalSpent = budgetViews.reduce((sum, budget) => sum + budget.spent, 0)
@@ -175,7 +192,7 @@ export default function BudgetsPage() {
   const balance = dashboardData?.balance ?? 0
   const budgetUsage = safePercentage(totalSpent, totalBudget)
   const plannedBudgetRatio = safePercentage(totalBudget, totalIncome)
-  const savingsGoal = totalIncome * (SAVINGS_GOAL_PERCENT / 100)
+  const savingsGoal = totalIncome * (savingsGoalPercent / 100)
   const savingsGoalProgress = safePercentage(Math.max(balance, 0), savingsGoal)
   const healthyBudgets = budgetViews.filter((budget) => budget.status === "good").length
   const warningBudgets = budgetViews.filter((budget) => budget.status === "warning").length
@@ -337,7 +354,7 @@ export default function BudgetsPage() {
             ) : (
               <>
                 <div className="break-words text-2xl font-bold">{formatCurrency(savingsGoal)}</div>
-                <p className="mt-1 text-xs text-muted-foreground">{SAVINGS_GOAL_PERCENT}% das receitas do mes</p>
+                <p className="mt-1 text-xs text-muted-foreground">{formatPercent(savingsGoalPercent)}% das receitas do mes</p>
               </>
             )}
           </CardContent>
@@ -378,7 +395,7 @@ export default function BudgetsPage() {
                   Categorias saudaveis
                 </div>
                 <p className="mt-2 text-lg font-semibold">{healthyBudgets} de {budgetViews.length}</p>
-                <p className="text-xs text-muted-foreground">abaixo de {MAX_HEALTHY_USAGE}% do limite</p>
+                <p className="text-xs text-muted-foreground">abaixo de {formatPercent(budgetWarningPercent)}% do limite</p>
               </div>
 
               <div className="rounded-lg border p-3">
@@ -412,7 +429,7 @@ export default function BudgetsPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span>Manter gastos abaixo de 80%</span>
+                <span>Manter gastos abaixo de {formatPercent(budgetWarningPercent)}%</span>
                 <span className="font-medium">{formatPercent(Math.min(budgetUsage, 100))}%</span>
               </div>
               <Progress value={Math.min(budgetUsage, 100)} />

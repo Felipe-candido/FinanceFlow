@@ -64,3 +64,28 @@ class TransactionResponse(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+
+
+class RecurringTransactionUpdate(BaseModel):
+    is_active: bool
+
+
+class RecurringTransactionResponse(BaseModel):
+    id: UUID
+    description: Optional[str] = None
+    type: TransactionType
+    start_date: datetime
+    amount: float
+    category_id: UUID
+    category: CategoryResponse
+    interval_months: int
+    end_date: Optional[datetime] = None
+    total_occurrences: Optional[int] = None
+    generated_occurrences: int
+    is_active: bool
+    created_at: datetime
+    next_occurrence_date: Optional[datetime] = None
+
+    model_config = {
+        "from_attributes": True,
+    }

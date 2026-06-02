@@ -107,6 +107,8 @@ class RecurringTransaction(Base):
         back_populates="recurring_transaction",
     )
 
+    category: Mapped["Category"] = relationship("Category")
+
 
 class Transaction(Base):
     __tablename__ = "transactions"

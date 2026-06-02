@@ -13,8 +13,18 @@ import { Badge } from "@/components/ui/badge"
 import { authService } from "@/lib/auth"
 import { useAuth } from "@/contexts/authProvider"
 import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 import { getBudgets } from "@/lib/api/budgets"
 import { getSettings, updateSettings } from "@/lib/api/settings"
+import {
+  BUDGETS_KEY,
+  SETTINGS_KEY,
+  defaultSettings,
+  mergeUserSettings,
+  readLocalSettings,
+  type UserSettings,
+  writeLocalSettings,
+} from "@/lib/user-settings"
 import {
   createCategory,
   deleteCategory,
@@ -44,43 +54,6 @@ import {
   WalletCards,
 } from "lucide-react"
 
-const SETTINGS_KEY = "financeflow:settings:v1"
-const BUDGETS_KEY = "financeflow:budgets:v1"
-
-type Theme = "light" | "dark"
-
-type Settings = {
-  displayName: string
-  theme: Theme
-  language: string
-  currency: string
-  monthStartDay: string
-  savingsTargetPercent: string
-  budgetWarningPercent: string
-  notifications: boolean
-  emailNotifications: boolean
-  pushNotifications: boolean
-  budgetAlerts: boolean
-  monthlySummary: boolean
-  privacyMode: boolean
-}
-
-const defaultSettings: Settings = {
-  displayName: "",
-  theme: "light",
-  language: "pt-BR",
-  currency: "BRL",
-  monthStartDay: "1",
-  savingsTargetPercent: "20",
-  budgetWarningPercent: "80",
-  notifications: true,
-  emailNotifications: true,
-  pushNotifications: false,
-  budgetAlerts: true,
-  monthlySummary: true,
-  privacyMode: false,
-}
-
 const navItems = [
   { id: "profile", label: "Perfil", icon: User },
   { id: "preferences", label: "Preferencias", icon: Globe },
@@ -104,7 +77,8 @@ function getInitials(name?: string, email?: string) {
 export default function SettingsPage() {
   const router = useRouter()
   const { user, token } = useAuth()
-  const [settings, setSettings] = useState<Settings>(defaultSettings)
+  const { setTheme } = useTheme()
+  const [settings, setSettings] = useState<UserSettings>(defaultSettings)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -119,20 +93,19 @@ export default function SettingsPage() {
     async function loadSettings() {
       try {
         if (token) {
-          const response = await getSettings<Settings>(token)
-          setSettings((current) => ({
-            ...current,
-            ...response.data,
-          }))
+          const response = await getSettings<Partial<UserSettings>>(token)
+          const accountSettings = mergeUserSettings(response.data)
+
+          setSettings(accountSettings)
+          writeLocalSettings(accountSettings)
+          setTheme(accountSettings.theme)
           return
         }
 
-        const storedSettings = window.localStorage.getItem(SETTINGS_KEY)
-        if (storedSettings) {
-          setSettings((current) => ({
-            ...current,
-            ...JSON.parse(storedSettings),
-          }))
+        const localSettings = readLocalSettings()
+        if (localSettings) {
+          setSettings(localSettings)
+          setTheme(localSettings.theme)
         }
       } catch (error) {
         console.error("Failed to load settings", error)
@@ -142,7 +115,7 @@ export default function SettingsPage() {
     }
 
     loadSettings()
-  }, [token])
+  }, [setTheme, token])
 
   useEffect(() => {
     async function loadCategories() {
@@ -167,12 +140,6 @@ export default function SettingsPage() {
     }))
   }, [settings.displayName, settingsLoaded, user?.name])
 
-  useEffect(() => {
-    if (!settingsLoaded) return
-
-    document.documentElement.classList.toggle("dark", settings.theme === "dark")
-  }, [settings, settingsLoaded])
-
   const profileName = settings.displayName || user?.name || "Usuario"
   const profileEmail = user?.email || ""
   const financeSummary = useMemo(() => {
@@ -195,7 +162,7 @@ export default function SettingsPage() {
     ]
   }, [settings.budgetWarningPercent, settings.monthStartDay, settings.savingsTargetPercent])
 
-  const updateSetting = <Key extends keyof Settings>(key: Key, value: Settings[Key]) => {
+  const updateSetting = <Key extends keyof UserSettings>(key: Key, value: UserSettings[Key]) => {
     setSaved(false)
     setSettings((current) => ({
       ...current,
@@ -204,14 +171,42 @@ export default function SettingsPage() {
   }
 
   const handleSaveSettings = async () => {
-    if (!token) return
-
     setSaving(true)
     try {
-      await updateSettings(token, settings)
+      writeLocalSettings(settings)
+      setTheme(settings.theme)
+
+      if (token) {
+        await updateSettings(token, settings)
+      }
+
       setSaved(true)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleThemeToggle = async () => {
+    const nextSettings = {
+      ...settings,
+      theme: settings.theme === "light" ? "dark" : "light",
+    } satisfies UserSettings
+
+    setSaved(false)
+    setSettings(nextSettings)
+    writeLocalSettings(nextSettings)
+    setTheme(nextSettings.theme)
+
+    if (!token) {
+      setSaved(true)
+      return
+    }
+
+    try {
+      await updateSettings(token, nextSettings)
+      setSaved(true)
+    } catch (error) {
+      console.error("Failed to save theme", error)
     }
   }
 
@@ -251,6 +246,7 @@ export default function SettingsPage() {
       await updateSettings(token, defaultSettings)
     }
     setSettings(defaultSettings)
+    setTheme(defaultSettings.theme)
     setConfirmClearData(false)
     setSaved(false)
   }
@@ -410,7 +406,7 @@ export default function SettingsPage() {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => updateSetting("theme", settings.theme === "light" ? "dark" : "light")}
+                  onClick={handleThemeToggle}
                   className="bg-transparent"
                   aria-label="Alternar tema"
                 >

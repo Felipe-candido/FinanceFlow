@@ -32,6 +32,23 @@ export interface BudgetResponse {
   updated_at: string
 }
 
+export interface RecurringTransaction {
+  id: string
+  description: string | null
+  type: "income" | "expense"
+  start_date: string
+  amount: number
+  category_id: string
+  category: Category
+  interval_months: number
+  end_date: string | null
+  total_occurrences: number | null
+  generated_occurrences: number
+  is_active: boolean
+  created_at: string
+  next_occurrence_date: string | null
+}
+
 export type DashboardResponse = {
   total_income: number
   total_expense: number

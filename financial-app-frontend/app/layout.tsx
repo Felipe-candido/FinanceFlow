@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/authProvider"
+import { ThemeProvider } from "@/components/theme-provider"
+import { UserSettingsThemeSync } from "@/components/user-settings-theme-sync"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -40,7 +42,12 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="font-sans antialiased bg-background text-foreground">
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          <AuthProvider>
+            <UserSettingsThemeSync />
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>

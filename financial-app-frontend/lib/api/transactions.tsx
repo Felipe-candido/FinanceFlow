@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api/client"
-import type { Category, Transaction } from "@/lib/data"
+import type { Category, RecurringTransaction, Transaction } from "@/lib/data"
 
 type TransactionPayload = {
       date: string
@@ -27,6 +27,10 @@ export async function getTransactions(token: string) {
       return apiFetch<Transaction[]>("/transactions/list", token)
 }
 
+export async function getRecurringTransactions(token: string) {
+      return apiFetch<RecurringTransaction[]>("/transactions/recurring/list", token)
+}
+
 export async function createTransaction(token: string, transaction: TransactionPayload) {
       return apiFetch<Transaction>("/transactions/add", token, {
             method: "POST",
@@ -43,6 +47,23 @@ export async function updateTransaction(token: string, idTransaction: string, tr
 
 export async function deleteTransaction(token:string, idTransaction: string) {
       return apiFetch<{ message: string }>(`/transactions/${idTransaction}`, token, {
+            method: "DELETE",
+      })
+}
+
+export async function updateRecurringTransactionStatus(
+      token: string,
+      idRecurringTransaction: string,
+      isActive: boolean,
+) {
+      return apiFetch<RecurringTransaction>(`/transactions/recurring/${idRecurringTransaction}`, token, {
+            method: "PATCH",
+            body: JSON.stringify({ is_active: isActive }),
+      })
+}
+
+export async function deleteRecurringTransaction(token: string, idRecurringTransaction: string) {
+      return apiFetch<{ message: string }>(`/transactions/recurring/${idRecurringTransaction}`, token, {
             method: "DELETE",
       })
 }

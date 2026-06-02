@@ -71,6 +71,55 @@ class TransactionService:
         self.db.refresh(new_transaction)
         return new_transaction
 
+    def list_recurring_transactions(self) -> list[dict]:
+        self.synchronize_recurring_transactions()
+
+        templates = (
+            self.db.query(RecurringTransaction)
+            .options(joinedload(RecurringTransaction.category))
+            .filter(RecurringTransaction.user_id == self.user.id)
+            .order_by(
+                RecurringTransaction.is_active.desc(),
+                RecurringTransaction.start_date.desc(),
+            )
+            .all()
+        )
+
+        return [self._serialize_recurring_template(template) for template in templates]
+
+    def update_recurring_transaction_status(
+        self,
+        recurring_transaction_id,
+        is_active: bool,
+    ) -> dict:
+        template = self._get_recurring_template(recurring_transaction_id)
+
+        if is_active and not self._has_future_occurrences(template):
+            raise HTTPException(
+                status_code=422,
+                detail="Recurring transaction has no future occurrences",
+            )
+
+        template.is_active = is_active
+        self.db.commit()
+        self.db.refresh(template)
+
+        return self._serialize_recurring_template(
+            self._get_recurring_template(recurring_transaction_id)
+        )
+
+    def delete_recurring_transaction(self, recurring_transaction_id):
+        template = self._get_recurring_template(recurring_transaction_id)
+        data = {
+            "id": template.id,
+            "description": template.description,
+            "amount": template.amount,
+        }
+
+        self.db.delete(template)
+        self.db.commit()
+        return {"message": "Deleted successfully", "data": data}
+
     def synchronize_recurring_transactions(self, up_to: Optional[datetime] = None) -> None:
         requested_limit = self._normalize_transaction_date(up_to)
         current_limit = self._normalize_transaction_date(None)
@@ -211,6 +260,62 @@ class TransactionService:
         self.db.refresh(transaction)
         return transaction
 
+    def _get_recurring_template(self, recurring_transaction_id) -> RecurringTransaction:
+        template = (
+            self.db.query(RecurringTransaction)
+            .options(joinedload(RecurringTransaction.category))
+            .filter(
+                RecurringTransaction.id == recurring_transaction_id,
+                RecurringTransaction.user_id == self.user.id,
+            )
+            .first()
+        )
+
+        if not template:
+            raise HTTPException(status_code=404, detail="Recurring transaction not found")
+
+        return template
+
+    def _serialize_recurring_template(self, template: RecurringTransaction) -> dict:
+        return {
+            "id": template.id,
+            "description": template.description,
+            "type": template.type,
+            "start_date": template.start_date,
+            "amount": template.amount,
+            "category_id": template.category_id,
+            "category": template.category,
+            "interval_months": template.interval_months,
+            "end_date": template.end_date,
+            "total_occurrences": template.total_occurrences,
+            "generated_occurrences": template.generated_occurrences,
+            "is_active": template.is_active,
+            "created_at": template.created_at,
+            "next_occurrence_date": self._get_next_occurrence_date(template),
+        }
+
+    def _get_next_occurrence_date(
+        self,
+        template: RecurringTransaction,
+    ) -> Optional[datetime]:
+        if not template.is_active:
+            return None
+
+        next_sequence = template.generated_occurrences + 1
+
+        if template.total_occurrences and next_sequence > template.total_occurrences:
+            return None
+
+        next_date = self._add_months(
+            template.start_date,
+            template.interval_months * (next_sequence - 1),
+        )
+
+        if template.end_date and next_date > template.end_date:
+            return None
+
+        return next_date
+
     def _materialize_template_until(
         self, template: RecurringTransaction, generation_limit: datetime
     ) -> bool:
@@ -275,10 +380,18 @@ class TransactionService:
         }
 
     def _has_future_occurrences(self, template: RecurringTransaction) -> bool:
-        if template.total_occurrences is not None and template.total_occurrences <= 1:
+        next_sequence = template.generated_occurrences + 1
+
+        if (
+            template.total_occurrences is not None
+            and next_sequence > template.total_occurrences
+        ):
             return False
 
-        next_date = self._add_months(template.start_date, template.interval_months)
+        next_date = self._add_months(
+            template.start_date,
+            template.interval_months * (next_sequence - 1),
+        )
         if template.end_date and next_date > template.end_date:
             return False
 
