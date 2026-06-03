@@ -3,17 +3,21 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { authService } from "@/lib/auth"
+import { createCheckoutSession } from "@/lib/api/payments"
+import { supabase } from "@/lib/supabase/client"
 import { Wallet, Loader2, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const shouldStartCheckout = searchParams.get("checkout") === "1"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -27,6 +31,18 @@ export default function LoginPage() {
 
     try {
       await authService.login(email, password)
+
+      if (shouldStartCheckout) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          throw new Error("Sessao invalida. Tente entrar novamente.")
+        }
+
+        const checkoutSession = await createCheckoutSession(session.access_token)
+        window.location.href = checkoutSession.url
+        return
+      }
+
       router.push("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login")
@@ -101,10 +117,10 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entrando...
+                  {shouldStartCheckout ? "Abrindo checkout..." : "Entrando..."}
                 </>
               ) : (
-                "Entrar"
+                shouldStartCheckout ? "Entrar e iniciar teste" : "Entrar"
               )}
             </Button>
           </form>

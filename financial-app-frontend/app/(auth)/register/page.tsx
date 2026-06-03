@@ -3,17 +3,21 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { authService } from "@/lib/auth"
+import { createCheckoutSession } from "@/lib/api/payments"
+import { supabase } from "@/lib/supabase/client"
 import { Wallet, Loader2, Eye, EyeOff } from "lucide-react"
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const shouldStartCheckout = searchParams.get("checkout") === "1"
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -40,6 +44,20 @@ export default function RegisterPage() {
 
     try {
       await authService.register({ name, email, password })
+
+      if (shouldStartCheckout) {
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (!session?.access_token) {
+          router.push("/login?checkout=1")
+          return
+        }
+
+        const checkoutSession = await createCheckoutSession(session.access_token)
+        window.location.href = checkoutSession.url
+        return
+      }
+
       router.push("/login")
     } catch (err) {
       console.error("REGISTER ERROR:", err)
@@ -138,10 +156,10 @@ export default function RegisterPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando conta...
+                  {shouldStartCheckout ? "Criando checkout..." : "Criando conta..."}
                 </>
               ) : (
-                "Criar conta"
+                shouldStartCheckout ? "Criar conta e iniciar teste" : "Criar conta"
               )}
             </Button>
           </form>
