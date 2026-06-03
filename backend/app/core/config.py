@@ -26,6 +26,9 @@ class Settings:
     supabase_project_url: str
     cors_origins: list[str]
     sql_echo: bool
+    stripe_secret_key: str | None
+    stripe_price_id: str | None
+    frontend_url: str
 
     def __init__(self) -> None:
         database_url = os.getenv("DATABASE_URL")
@@ -48,6 +51,9 @@ class Settings:
             ["finance-flow-mu-sooty.vercel.app", "http://localhost:3001"],
         )
         self.sql_echo = _get_bool("SQL_ECHO", False)
+        self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+        self.stripe_price_id = os.getenv("STRIPE_PRICE_ID")
+        self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 
     @staticmethod
     def _infer_supabase_ref(database_url: str) -> str | None:
