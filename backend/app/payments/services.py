@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.users.models import User
 
-
 class PaymentService:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -50,10 +49,7 @@ class PaymentService:
                     "user_id": str(user.id),
                     "price_id": self.settings.stripe_price_id,
                 },
-                success_url=(
-                    f"{self.settings.frontend_url}/dashboard"
-                    "?checkout=success&session_id={CHECKOUT_SESSION_ID}"
-                ),
+                success_url=self.settings.frontend_url + "/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}",
                 cancel_url=f"{self.settings.frontend_url}/?checkout=cancelled#planos",
             )
         except stripe.StripeError as exc:
@@ -77,8 +73,9 @@ class PaymentService:
         stripe.api_key = self.settings.stripe_secret_key
 
         try:
-            event_type = event["type"]
-            event_data = event["data"]["object"]
+            # CORREÇÃO: Utilizando notação de ponto (Stripe v8+)
+            event_type = event.type
+            event_data = event.data.object
 
             if event_type == "checkout.session.completed":
                 self._handle_checkout_completed(event_data)
@@ -86,15 +83,21 @@ class PaymentService:
                 self._handle_subscription_updated(event_data)
             elif event_type == "customer.subscription.deleted":
                 self._handle_subscription_deleted(event_data)
-        except Exception:
+        except Exception as e:
+            print(f"Erro processando evento interno: {str(e)}") # Adicionando log de segurança
             self.db.rollback()
             raise
 
     def _handle_checkout_completed(self, session: Any) -> None:
-        metadata = session.get("metadata") or {}
-        user_id = session.get("client_reference_id") or metadata.get("user_id")
-        stripe_customer_id = session.get("customer")
-        subscription_id = session.get("subscription")
+        # CORREÇÃO: Utilizando notação de ponto (Stripe v8+)
+        user_id = session.client_reference_id
+        
+        # Fallback de segurança para o metadata
+        if not user_id and session.metadata:
+            user_id = session.metadata.get("user_id")
+
+        stripe_customer_id = session.customer
+        subscription_id = session.subscription
 
         if not user_id:
             return
@@ -114,16 +117,18 @@ class PaymentService:
         self.db.commit()
 
     def _handle_subscription_updated(self, subscription: Any) -> None:
-        user = self._get_user_by_stripe_customer_id(subscription.get("customer"))
+        # CORREÇÃO: Utilizando notação de ponto (Stripe v8+)
+        user = self._get_user_by_stripe_customer_id(subscription.customer)
         if not user:
             return
 
-        user.subscription_status = subscription.get("status")
+        user.subscription_status = subscription.status
         user.price_id = self._get_subscription_price_id(subscription) or user.price_id
         self.db.commit()
 
     def _handle_subscription_deleted(self, subscription: Any) -> None:
-        user = self._get_user_by_stripe_customer_id(subscription.get("customer"))
+        # CORREÇÃO: Utilizando notação de ponto (Stripe v8+)
+        user = self._get_user_by_stripe_customer_id(subscription.customer)
         if not user:
             return
 
@@ -142,15 +147,16 @@ class PaymentService:
 
     @staticmethod
     def _get_subscription_price_id(subscription: Any) -> str | None:
-        items = (subscription.get("items") or {}).get("data", [])
+        # CORREÇÃO: Utilizando notação de ponto (Stripe v8+)
+        items = subscription.items.data if subscription.items else []
         if not items:
             return None
 
-        price = items[0].get("price")
+        price = items[0].price
         if not price:
             return None
 
-        return price.get("id")
+        return price.id
 
     def _get_or_create_customer(self, user: User) -> str:
         if user.stripe_customer_id:
