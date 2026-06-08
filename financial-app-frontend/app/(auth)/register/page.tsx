@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,20 @@ import { supabase } from "@/lib/supabase/client"
 import { Wallet, Loader2, Eye, EyeOff } from "lucide-react"
 
 export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/20 to-primary/5 p-4">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <RegisterPageContent />
+    </Suspense>
+  )
+}
+
+function RegisterPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const shouldStartCheckout = searchParams.get("checkout") === "1"
@@ -167,7 +181,10 @@ export default function RegisterPage() {
         <CardFooter className="flex-col space-y-4">
           <div className="text-sm text-center text-muted-foreground">
             Já tem uma conta?{" "}
-            <Link href="/login" className="text-primary font-medium hover:text-primary/80 transition-colors">
+            <Link
+              href={shouldStartCheckout ? "/login?checkout=1" : "/login"}
+              className="text-primary font-medium hover:text-primary/80 transition-colors"
+            >
               Entrar
             </Link>
           </div>

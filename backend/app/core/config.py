@@ -28,6 +28,7 @@ class Settings:
     sql_echo: bool
     stripe_secret_key: str | None
     stripe_price_id: str | None
+    stripe_webhook_secret: str | None
     frontend_url: str
 
     def __init__(self) -> None:
@@ -53,6 +54,7 @@ class Settings:
         self.sql_echo = _get_bool("SQL_ECHO", False)
         self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
         self.stripe_price_id = os.getenv("STRIPE_PRICE_ID")
+        self.stripe_webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
         self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 
     @staticmethod

@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 import stripe
@@ -71,6 +72,85 @@ class PaymentService:
         self.db.commit()
 
         return session.url
+
+    def handle_webhook_event(self, event: Any) -> None:
+        stripe.api_key = self.settings.stripe_secret_key
+
+        try:
+            event_type = event["type"]
+            event_data = event["data"]["object"]
+
+            if event_type == "checkout.session.completed":
+                self._handle_checkout_completed(event_data)
+            elif event_type == "customer.subscription.updated":
+                self._handle_subscription_updated(event_data)
+            elif event_type == "customer.subscription.deleted":
+                self._handle_subscription_deleted(event_data)
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def _handle_checkout_completed(self, session: Any) -> None:
+        metadata = session.get("metadata") or {}
+        user_id = session.get("client_reference_id") or metadata.get("user_id")
+        stripe_customer_id = session.get("customer")
+        subscription_id = session.get("subscription")
+
+        if not user_id:
+            return
+
+        user = self.db.get(User, UUID(str(user_id)))
+        if not user:
+            return
+
+        if stripe_customer_id:
+            user.stripe_customer_id = str(stripe_customer_id)
+
+        if subscription_id:
+            subscription = stripe.Subscription.retrieve(str(subscription_id))
+            user.subscription_status = subscription.status
+            user.price_id = self._get_subscription_price_id(subscription) or user.price_id
+
+        self.db.commit()
+
+    def _handle_subscription_updated(self, subscription: Any) -> None:
+        user = self._get_user_by_stripe_customer_id(subscription.get("customer"))
+        if not user:
+            return
+
+        user.subscription_status = subscription.get("status")
+        user.price_id = self._get_subscription_price_id(subscription) or user.price_id
+        self.db.commit()
+
+    def _handle_subscription_deleted(self, subscription: Any) -> None:
+        user = self._get_user_by_stripe_customer_id(subscription.get("customer"))
+        if not user:
+            return
+
+        user.subscription_status = "canceled"
+        self.db.commit()
+
+    def _get_user_by_stripe_customer_id(self, stripe_customer_id: str | None) -> User | None:
+        if not stripe_customer_id:
+            return None
+
+        return (
+            self.db.query(User)
+            .filter(User.stripe_customer_id == str(stripe_customer_id))
+            .first()
+        )
+
+    @staticmethod
+    def _get_subscription_price_id(subscription: Any) -> str | None:
+        items = (subscription.get("items") or {}).get("data", [])
+        if not items:
+            return None
+
+        price = items[0].get("price")
+        if not price:
+            return None
+
+        return price.get("id")
 
     def _get_or_create_customer(self, user: User) -> str:
         if user.stripe_customer_id:

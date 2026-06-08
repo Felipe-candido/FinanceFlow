@@ -24,13 +24,20 @@ def upgrade() -> None:
     op.add_column('users', sa.Column('stripe_customer_id', sa.String(), nullable=True))
     op.add_column('users', sa.Column('subscription_status', sa.String(), nullable=True))
     op.add_column('users', sa.Column('price_id', sa.String(), nullable=True))
-    op.execute("ALTER TABLE users ENABLE ROW LEVEL SECURITY")
     op.execute(
         """
-        CREATE POLICY users_can_select_own_subscription
-        ON users
-        FOR SELECT
-        USING (auth.uid() = id)
+        DO $$
+        BEGIN
+            IF to_regprocedure('auth.uid()') IS NOT NULL THEN
+                ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+                CREATE POLICY users_can_select_own_subscription
+                ON users
+                FOR SELECT
+                USING (auth.uid() = id);
+            END IF;
+        END
+        $$;
         """
     )
     # ### end Alembic commands ###
