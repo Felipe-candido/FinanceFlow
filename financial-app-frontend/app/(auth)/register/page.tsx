@@ -1,9 +1,8 @@
 "use client"
 
 import type React from "react"
-
-import { Suspense, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,23 +14,7 @@ import { supabase } from "@/lib/supabase/client"
 import { Wallet, Loader2, Eye, EyeOff } from "lucide-react"
 
 export default function RegisterPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/20 to-primary/5 p-4">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      }
-    >
-      <RegisterPageContent />
-    </Suspense>
-  )
-}
-
-function RegisterPageContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const shouldStartCheckout = searchParams.get("checkout") === "1"
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -57,29 +40,26 @@ function RegisterPageContent() {
     setLoading(true)
 
     try {
+      // 1. Cria a conta
       await authService.register({ name, email, password })
+      
+      // 2. Faz o login imediatamente para obter a sessão
+      await authService.login(email, password)
+      const { data: { session } } = await supabase.auth.getSession()
 
-      if (shouldStartCheckout) {
-        const { data: { session } } = await supabase.auth.getSession()
-
-        if (!session?.access_token) {
-          router.push("/login?checkout=1")
-          return
-        }
-
-        const checkoutSession = await createCheckoutSession(session.access_token)
-        window.location.href = checkoutSession.url
-        return
+      if (!session?.access_token) {
+        throw new Error("Sessão não encontrada.")
       }
 
-      router.push("/login")
+      // 3. Gera o link da Stripe e redireciona (Fluxo Obrigatório)
+      const checkoutSession = await createCheckoutSession(session.access_token)
+      window.location.href = checkoutSession.url
+
     } catch (err) {
       console.error("REGISTER ERROR:", err)
       setError(err instanceof Error ? err.message : "Erro ao criar conta")
-    } finally {
       setLoading(false)
     }
-    
   }
 
   return (
@@ -170,10 +150,10 @@ function RegisterPageContent() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {shouldStartCheckout ? "Criando checkout..." : "Criando conta..."}
+                  Preparando seu acesso...
                 </>
               ) : (
-                shouldStartCheckout ? "Criar conta e iniciar teste" : "Criar conta"
+                "Criar conta e iniciar teste grátis"
               )}
             </Button>
           </form>
@@ -181,10 +161,7 @@ function RegisterPageContent() {
         <CardFooter className="flex-col space-y-4">
           <div className="text-sm text-center text-muted-foreground">
             Já tem uma conta?{" "}
-            <Link
-              href={shouldStartCheckout ? "/login?checkout=1" : "/login"}
-              className="text-primary font-medium hover:text-primary/80 transition-colors"
-            >
+            <Link href="/login" className="text-primary font-medium hover:text-primary/80 transition-colors">
               Entrar
             </Link>
           </div>

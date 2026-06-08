@@ -45,19 +45,8 @@ function LoginPageContent() {
 
     try {
       await authService.login(email, password)
-
-      if (shouldStartCheckout) {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.access_token) {
-          throw new Error("Sessao invalida. Tente entrar novamente.")
-        }
-
-        const checkoutSession = await createCheckoutSession(session.access_token)
-        window.location.href = checkoutSession.url
-        return
-      }
-
-      router.push("/dashboard")
+      // Direto para o Dashboard. O Layout decide se bloqueia ou não.
+      router.push("/dashboard") 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login")
     } finally {

@@ -225,7 +225,7 @@ export default function LandingPage() {
     setCheckoutError("")
 
     if (!token) {
-      router.push("/register?checkout=1")
+      router.push("/register")
       return
     }
 
@@ -270,7 +270,7 @@ export default function LandingPage() {
               Entrar
             </Link>
             <Link
-              href="/register?checkout=1"
+              href="/register"
               className="rounded-lg bg-[#2d7a4f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#246040]"
             >
               Começar grátis
@@ -293,7 +293,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/register?checkout=1"
+              href="/register"
               className="inline-flex items-center gap-2 rounded-lg bg-[#2d7a4f] px-7 py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#246040]"
             >
               Criar conta grátis
@@ -543,7 +543,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-4">
             <Link
-              href="/register?checkout=1"
+              href="/register"
               className="rounded-lg bg-white px-7 py-3.5 text-sm font-medium text-[#1a1916] transition-opacity hover:opacity-90"
             >
               Criar conta grátis
