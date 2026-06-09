@@ -130,7 +130,10 @@ class PaymentService:
         # CORREÇÃO: Utilizando notação de ponto (Stripe v8+)
         user = self._get_user_by_stripe_customer_id(subscription.customer)
         if not user:
+            print(f"DEBUG: Webhook de delete recebido, mas usuário com stripe_customer_id {subscription.customer} NÃO foi encontrado no banco!")
             return
+        
+        print(f"DEBUG: Usuário {user.email} encontrado e status alterado para canceled.")
 
         user.subscription_status = "canceled"
         self.db.commit()
@@ -173,3 +176,30 @@ class PaymentService:
         self.db.refresh(user)
 
         return customer.id
+    
+    
+    def create_portal_session(self, user_id: str) -> str:
+        # Busca o usuário no banco
+        user = self.db.get(User, UUID(user_id))
+        
+        # Se o cara não tem stripe_customer_id, ele não tem assinatura para gerenciar
+        if not user or not user.stripe_customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Usuário não possui um cadastro na Stripe"
+            )
+
+        stripe.api_key = self.settings.stripe_secret_key
+
+        try:
+            # Pede pra Stripe criar a sessão do Portal
+            session = stripe.billing_portal.Session.create(
+                customer=user.stripe_customer_id,
+                return_url=f"{self.settings.frontend_url}/settings", # Pra onde ele volta quando sair do portal
+            )
+            return session.url
+        except stripe.StripeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc.user_message or "Não foi possível acessar o portal da Stripe"),
+            ) from exc
