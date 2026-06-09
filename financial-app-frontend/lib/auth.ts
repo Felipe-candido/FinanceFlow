@@ -10,12 +10,17 @@ type UserData = {
 async function syncBackendUser(accessToken?: string) {
   if (!accessToken) return
 
-  await fetch(getApiUrl("/auth/sync"), {
+  const response = await fetch(getApiUrl("/auth/sync"), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   })
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || `Erro ao sincronizar usuario (${response.status})`)
+  }
 }
 
 export const authService = {

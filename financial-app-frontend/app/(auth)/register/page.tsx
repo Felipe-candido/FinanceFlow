@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -10,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { authService } from "@/lib/auth"
+import { createCheckoutSession } from "@/lib/api/payments"
+import { supabase } from "@/lib/supabase/client"
 import { Wallet, Loader2, Eye, EyeOff } from "lucide-react"
 
 export default function RegisterPage() {
@@ -39,15 +40,26 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
+      // 1. Cria a conta
       await authService.register({ name, email, password })
-      router.push("/login")
+      
+      // 2. Faz o login imediatamente para obter a sessão
+      await authService.login(email, password)
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error("Sessão não encontrada.")
+      }
+
+      // 3. Gera o link da Stripe e redireciona (Fluxo Obrigatório)
+      const checkoutSession = await createCheckoutSession(session.access_token)
+      window.location.href = checkoutSession.url
+
     } catch (err) {
       console.error("REGISTER ERROR:", err)
       setError(err instanceof Error ? err.message : "Erro ao criar conta")
-    } finally {
       setLoading(false)
     }
-    
   }
 
   return (
@@ -138,10 +150,10 @@ export default function RegisterPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Criando conta...
+                  Preparando seu acesso...
                 </>
               ) : (
-                "Criar conta"
+                "Criar conta e iniciar teste grátis"
               )}
             </Button>
           </form>

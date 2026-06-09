@@ -38,3 +38,18 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan"
     )
+
+    stripe_customer_id: Mapped[str | None] = mapped_column(
+        String, 
+        nullable=True
+    )
+    
+    subscription_status: Mapped[str | None] = mapped_column(
+        String, 
+        nullable=True
+    )
+
+    price_id: Mapped[str | None] = mapped_column(
+        String, 
+        nullable=True
+    )

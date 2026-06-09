@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import {
   ArrowRight,
@@ -14,6 +15,8 @@ import {
   Star,
   Wallet,
 } from "lucide-react"
+import { useAuth } from "@/contexts/authProvider"
+import { createCheckoutSession } from "@/lib/api/payments"
 
 const screenshots = [
   {
@@ -212,7 +215,35 @@ function ProductStack() {
 }
 
 export default function LandingPage() {
+  const router = useRouter()
+  const { token } = useAuth()
   const [activeTab, setActiveTab] = useState(screenshots[0])
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState("")
+
+  const startCheckout = async () => {
+    setCheckoutError("")
+
+    if (!token) {
+      router.push("/register")
+      return
+    }
+
+    setCheckoutLoading(true)
+    try {
+      const session = await createCheckoutSession(token)
+      window.location.href = session.url
+    } catch (error) {
+      console.error("CHECKOUT ERROR:", error)
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel iniciar o checkout",
+      )
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#fafaf8] text-[#1a1916]">
@@ -276,7 +307,7 @@ export default function LandingPage() {
             </a>
           </div>
           <p className="mt-4 text-sm text-[#6b6860]">
-            Sem necessidade de cartão de crédito. Cancele quando quiser.
+            Sem cobrança durante o teste. Cancele quando quiser.
           </p>
           <ScreenshotFrame
             src="/landing/dashboard-rendeu.png"
@@ -483,14 +514,19 @@ export default function LandingPage() {
                   <CheckItem key={item}>{item}</CheckItem>
                 ))}
               </ul>
-              <Link
-                href="/register"
-                className="mt-9 block rounded-lg bg-[#2d7a4f] px-7 py-3.5 text-center text-sm font-medium text-white transition-colors hover:bg-[#246040]"
+              <button
+                type="button"
+                onClick={startCheckout}
+                disabled={checkoutLoading}
+                className="mt-9 block w-full rounded-lg bg-[#2d7a4f] px-7 py-3.5 text-center text-sm font-medium text-white transition-colors hover:bg-[#246040] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Começar teste grátis
-              </Link>
+                {checkoutLoading ? "Abrindo checkout..." : "Começar teste grátis"}
+              </button>
+              {checkoutError && (
+                <p className="mt-3 text-center text-xs text-red-600">{checkoutError}</p>
+              )}
               <p className="mt-4 text-center text-xs text-[#6b6860]">
-                Sem cartão de crédito para começar
+                Sem cobrança durante os 14 dias de teste
               </p>
             </div>
           </div>
@@ -520,7 +556,7 @@ export default function LandingPage() {
             </a>
           </div>
           <p className="mt-5 text-xs text-white/40">
-            14 dias grátis. Sem cartão de crédito. Cancele a qualquer momento.
+            14 dias grátis. Sem cobrança no teste. Cancele a qualquer momento.
           </p>
         </div>
       </section>

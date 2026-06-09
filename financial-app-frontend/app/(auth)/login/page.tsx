@@ -2,18 +2,36 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { authService } from "@/lib/auth"
+import { createCheckoutSession } from "@/lib/api/payments"
+import { supabase } from "@/lib/supabase/client"
 import { Wallet, Loader2, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/20 to-primary/5 p-4">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
+  )
+}
+
+function LoginPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const shouldStartCheckout = searchParams.get("checkout") === "1"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -27,7 +45,8 @@ export default function LoginPage() {
 
     try {
       await authService.login(email, password)
-      router.push("/dashboard")
+      // Direto para o Dashboard. O Layout decide se bloqueia ou não.
+      router.push("/dashboard") 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao fazer login")
     } finally {
@@ -101,10 +120,10 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entrando...
+                  {shouldStartCheckout ? "Abrindo checkout..." : "Entrando..."}
                 </>
               ) : (
-                "Entrar"
+                shouldStartCheckout ? "Entrar e iniciar teste" : "Entrar"
               )}
             </Button>
           </form>
@@ -112,7 +131,10 @@ export default function LoginPage() {
         <CardFooter className="flex-col space-y-4">
           <div className="text-sm text-center text-muted-foreground">
             Não tem uma conta?{" "}
-            <Link href="/register" className="text-primary font-medium hover:text-primary/80 transition-colors">
+            <Link
+              href={shouldStartCheckout ? "/register?checkout=1" : "/register"}
+              className="text-primary font-medium hover:text-primary/80 transition-colors"
+            >
               Cadastre-se
             </Link>
           </div>

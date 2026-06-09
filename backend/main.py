@@ -8,6 +8,7 @@ from app.categories.routes import category_router
 from app.budgets.routes import budgets_router
 from app.settings.routes import settings_router
 from app.agente_ia.router import router as ai_router
+from app.payments.routes import payments_router, stripe_webhooks_router
 
 app = FastAPI()
 settings = get_settings()
@@ -44,3 +45,5 @@ app.include_router(category_router)
 app.include_router(budgets_router)
 app.include_router(settings_router)
 app.include_router(ai_router)
+app.include_router(payments_router)
+app.include_router(stripe_webhooks_router)
