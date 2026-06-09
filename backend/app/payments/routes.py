@@ -63,7 +63,6 @@ async def stripe_webhook(
     try:
         PaymentService(db).handle_webhook_event(event)
     except Exception as exc:
-        print(f"WEBHOOK CRÍTICO: Falha no processamento -> {exc}") # <-- LOG SALVADOR AQUI
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal webhook processing error",

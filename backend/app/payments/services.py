@@ -27,6 +27,21 @@ class PaymentService:
         stripe.api_key = self.settings.stripe_secret_key
         customer_id = self._get_or_create_customer(user)
 
+        # PREPARANDO OS DADOS BASE DA ASSINATURA
+        subscription_data = {
+            "metadata": {
+                "user_id": str(user.id),
+                "price_id": self.settings.stripe_price_id,
+            },
+        }
+
+        # Se o usuário não tem status de assinatura, é a primeira vez dele.
+        is_first_time = user.subscription_status is None
+
+        if is_first_time:
+            # Só ganha os 14 dias se for a primeira vez
+            subscription_data["trial_period_days"] = 14
+
         try:
             session = stripe.checkout.Session.create(
                 mode="subscription",
@@ -38,13 +53,7 @@ class PaymentService:
                         "quantity": 1,
                     }
                 ],
-                subscription_data={
-                    "trial_period_days": 14,
-                    "metadata": {
-                        "user_id": str(user.id),
-                        "price_id": self.settings.stripe_price_id,
-                    },
-                },
+                subscription_data=subscription_data,
                 metadata={
                     "user_id": str(user.id),
                     "price_id": self.settings.stripe_price_id,
@@ -84,7 +93,6 @@ class PaymentService:
             elif event_type == "customer.subscription.deleted":
                 self._handle_subscription_deleted(event_data)
         except Exception as e:
-            print(f"Erro processando evento interno: {str(e)}") # Adicionando log de segurança
             self.db.rollback()
             raise
 
@@ -130,10 +138,7 @@ class PaymentService:
         # CORREÇÃO: Utilizando notação de ponto (Stripe v8+)
         user = self._get_user_by_stripe_customer_id(subscription.customer)
         if not user:
-            print(f"DEBUG: Webhook de delete recebido, mas usuário com stripe_customer_id {subscription.customer} NÃO foi encontrado no banco!")
             return
-        
-        print(f"DEBUG: Usuário {user.email} encontrado e status alterado para canceled.")
 
         user.subscription_status = "canceled"
         self.db.commit()
