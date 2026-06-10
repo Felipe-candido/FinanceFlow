@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from app.core.dependecies import get_db
 from app.core.config import get_settings
 from app.core.security import get_current_user
-from app.payments.schemas import CheckoutSessionResponse
 from app.payments.services import PaymentService
+from app.payments.schemas import CheckoutSessionResponse, PortalSessionResponse
 
 
 payments_router = APIRouter(prefix="/payments", tags=["payments"])
@@ -63,10 +63,18 @@ async def stripe_webhook(
     try:
         PaymentService(db).handle_webhook_event(event)
     except Exception as exc:
-        print(f"WEBHOOK CRÍTICO: Falha no processamento -> {exc}") # <-- LOG SALVADOR AQUI
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal webhook processing error",
         ) from exc
 
     return {"status": "success"}
+
+
+@payments_router.post("/portal-session", response_model=PortalSessionResponse)
+async def create_portal_session(
+    db=Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    service = PaymentService(db)
+    return PortalSessionResponse(url=service.create_portal_session(current_user["sub"]))

@@ -52,7 +52,10 @@ import {
   Trash2,
   User,
   WalletCards,
+  CreditCard
 } from "lucide-react"
+import { createPortalSession } from "@/lib/api/payments"
+import { supabase } from "@/lib/supabase/client"
 
 const navItems = [
   { id: "profile", label: "Perfil", icon: User },
@@ -388,6 +391,16 @@ export default function SettingsPage() {
                   <Input id="email" type="email" value={profileEmail} disabled />
                   <p className="text-xs text-muted-foreground">Alteracao de email precisa ser feita pela autenticacao.</p>
                 </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">Plano e Assinatura</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Gerencie seu plano, histórico de faturas e forma de pagamento na Stripe.</p>
+                </div>
+                <ManageSubscriptionButton />
               </div>
             </CardContent>
           </Card>
@@ -727,3 +740,46 @@ function SettingSwitch({
     </div>
   )
 }
+
+function ManageSubscriptionButton() {
+  const [loading, setLoading] = useState(false)
+
+  const handleManageSubscription = async () => {
+    setLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        throw new Error("Sessão inválida")
+      }
+
+      // Chama a API e pega o link do portal
+      const portal = await createPortalSession(session.access_token)
+      
+      // Redireciona o usuário para o painel da Stripe
+      window.location.href = portal.url
+    } catch (error) {
+      console.error("Erro ao abrir portal:", error)
+      alert("Não foi possível acessar a assinatura agora.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Button 
+      onClick={handleManageSubscription} 
+      disabled={loading}
+      variant="outline"
+      className="gap-2 sm:w-auto"
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <CreditCard className="h-4 w-4" />
+      )}
+      Gerenciar Assinatura
+    </Button>
+  )
+}
+

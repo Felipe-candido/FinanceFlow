@@ -27,6 +27,21 @@ class PaymentService:
         stripe.api_key = self.settings.stripe_secret_key
         customer_id = self._get_or_create_customer(user)
 
+        # PREPARANDO OS DADOS BASE DA ASSINATURA
+        subscription_data = {
+            "metadata": {
+                "user_id": str(user.id),
+                "price_id": self.settings.stripe_price_id,
+            },
+        }
+
+        # Se o usuário não tem status de assinatura, é a primeira vez dele.
+        is_first_time = user.subscription_status is None
+
+        if is_first_time:
+            # Só ganha os 14 dias se for a primeira vez
+            subscription_data["trial_period_days"] = 14
+
         try:
             session = stripe.checkout.Session.create(
                 mode="subscription",
@@ -38,13 +53,7 @@ class PaymentService:
                         "quantity": 1,
                     }
                 ],
-                subscription_data={
-                    "trial_period_days": 14,
-                    "metadata": {
-                        "user_id": str(user.id),
-                        "price_id": self.settings.stripe_price_id,
-                    },
-                },
+                subscription_data=subscription_data,
                 metadata={
                     "user_id": str(user.id),
                     "price_id": self.settings.stripe_price_id,
@@ -84,7 +93,6 @@ class PaymentService:
             elif event_type == "customer.subscription.deleted":
                 self._handle_subscription_deleted(event_data)
         except Exception as e:
-            print(f"Erro processando evento interno: {str(e)}") # Adicionando log de segurança
             self.db.rollback()
             raise
 
@@ -173,3 +181,30 @@ class PaymentService:
         self.db.refresh(user)
 
         return customer.id
+    
+    
+    def create_portal_session(self, user_id: str) -> str:
+        # Busca o usuário no banco
+        user = self.db.get(User, UUID(user_id))
+        
+        # Se o cara não tem stripe_customer_id, ele não tem assinatura para gerenciar
+        if not user or not user.stripe_customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Usuário não possui um cadastro na Stripe"
+            )
+
+        stripe.api_key = self.settings.stripe_secret_key
+
+        try:
+            # Pede pra Stripe criar a sessão do Portal
+            session = stripe.billing_portal.Session.create(
+                customer=user.stripe_customer_id,
+                return_url=f"{self.settings.frontend_url}/settings", # Pra onde ele volta quando sair do portal
+            )
+            return session.url
+        except stripe.StripeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc.user_message or "Não foi possível acessar o portal da Stripe"),
+            ) from exc
