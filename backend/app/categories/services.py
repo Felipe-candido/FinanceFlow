@@ -116,13 +116,13 @@ class CategoryService:
 
 
 DEFAULT_CATEGORIES = [
-    {"name": "Moradia", "type": "expense", "color": "#ef4444"},
+    {"name": "Moradia", "type": "expense", "color": "#ff1f1f"},
     {"name": "Alimentacao", "type": "expense", "color": "#f97316"},
     {"name": "Transporte", "type": "expense", "color": "#eab308"},
-    {"name": "Saude", "type": "expense", "color": "#ec4899"},
-    {"name": "Lazer", "type": "expense", "color": "#8b5cf6"},
+    {"name": "Saude", "type": "expense", "color": "#ec4863"},
+    {"name": "Lazer", "type": "expense", "color": "#ff6200"},
     {"name": "Outros", "type": "expense", "color": "#6b7280"},
-    {"name": "Salario", "type": "income", "color": "#22c55e"},
+    {"name": "Salário", "type": "income", "color": "#22c55e"},
     {"name": "Freelance", "type": "income", "color": "#10b981"},
     {"name": "Investimentos", "type": "income", "color": "#3b82f6"},
     {"name": "Outros", "type": "income", "color": "#4b5563"},
