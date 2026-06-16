@@ -27,10 +27,10 @@ def health():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",
-        "https://finance-flow-git-main-felipe-candidos-projects.vercel.app",
-        "https://finance-flow-mu-sooty.vercel.app"
-    ],
+        origin.strip() 
+        for origin in settings.cors_origins.split(",") 
+        if origin.strip()
+    ] if settings.cors_origins else [],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
