@@ -24,13 +24,21 @@ def health():
 # --------------------
 # CORS CONFIGURATION
 # --------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+
+if isinstance(settings.cors_origins, list):
+    allowed_origins = settings.cors_origins
+elif isinstance(settings.cors_origins, str):
+    allowed_origins = [
         origin.strip() 
         for origin in settings.cors_origins.split(",") 
         if origin.strip()
-    ] if settings.cors_origins else [],
+    ]
+else:
+    allowed_origins = []
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
