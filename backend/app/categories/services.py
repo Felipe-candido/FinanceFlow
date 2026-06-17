@@ -1,3 +1,4 @@
+import unicodedata
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -6,6 +7,16 @@ from sqlalchemy.orm import Session
 from app.categories.models import Category
 from app.categories.schemas import CategoryCreate, CategoryUpdate
 from app.users.models import User
+
+
+# ---------------------------------------------------------
+# FUNÇÃO AUXILIAR PARA REMOVER ACENTOS E DEIXAR MINÚSCULO
+# ---------------------------------------------------------
+def normalize_string(text: str) -> str:
+    if not text:
+        return ""
+    # Transforma "Salário" em "salario", "Alimentação" em "alimentacao", etc.
+    return unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8').lower()
 
 
 class CategoryService:
@@ -19,14 +30,16 @@ class CategoryService:
     def create_category(self, data: CategoryCreate) -> Category:
         self._validate_type(data.type)
 
-        existing = self.db.query(Category).filter(
+        # Busca as categorias do tipo específico e compara na memória (sem acento)
+        user_categories = self.db.query(Category).filter(
             Category.user_id == self.user.id,
-            Category.name.ilike(data.name),
             Category.type == data.type,
-        ).first()
+        ).all()
 
-        if existing:
-            raise HTTPException(status_code=409, detail="Category already exists")
+        normalized_new_name = normalize_string(data.name)
+        for cat in user_categories:
+            if normalize_string(cat.name) == normalized_new_name:
+                raise HTTPException(status_code=409, detail="Category already exists")
 
         new_category = Category(
             name=data.name,
@@ -77,14 +90,18 @@ class CategoryService:
             category.type = data.type
 
         if data.name is not None:
-            existing = self.db.query(Category).filter(
+            # Busca todas menos a própria categoria sendo editada
+            user_categories = self.db.query(Category).filter(
                 Category.user_id == self.user.id,
-                Category.name.ilike(data.name),
                 Category.type == category.type,
                 Category.id != category.id,
-            ).first()
-            if existing:
-                raise HTTPException(status_code=409, detail="Category already exists")
+            ).all()
+
+            normalized_new_name = normalize_string(data.name)
+            for cat in user_categories:
+                if normalize_string(cat.name) == normalized_new_name:
+                    raise HTTPException(status_code=409, detail="Category already exists")
+                    
             category.name = data.name
 
         if data.color is not None:
@@ -130,13 +147,14 @@ DEFAULT_CATEGORIES = [
 
 
 def ensure_default_categories(db: Session, user_id: UUID) -> None:
+    # Agora a comparação ignora acentos completamente
     existing = {
-        (category.name.lower(), category.type)
+        (normalize_string(category.name), category.type)
         for category in db.query(Category).filter(Category.user_id == user_id).all()
     }
 
     for data in DEFAULT_CATEGORIES:
-        key = (data["name"].lower(), data["type"])
+        key = (normalize_string(data["name"]), data["type"])
         if key in existing:
             continue
 
