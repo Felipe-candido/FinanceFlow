@@ -13,7 +13,7 @@ from app.core.security import get_current_user
 
 router = APIRouter(prefix="/ai", tags=["AI Agent"])
 
-llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.2)
+llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0.2)
 
 
 def extract_text(content) -> str:
