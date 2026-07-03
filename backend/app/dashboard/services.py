@@ -2,7 +2,7 @@ from sqlalchemy import select, func
 from app.dashboard.schemas import DashboardResponse, DashboardPeriod
 from app.transactions.models import Transaction
 from app.transactions.services import TransactionService
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from sqlalchemy.orm import joinedload
 from app.categories.models import Category
@@ -52,7 +52,6 @@ class DashboardService:
         )
 
         result = self.db.execute(stmt).scalars().all()
-
         return result
 
     def _get_total_by_category(self, start_date, end_date, type_):
@@ -74,46 +73,102 @@ class DashboardService:
         )
 
         result = self.db.execute(stmt).mappings().all()
-
         return result
+    
+    # --- PROJECTION METHODS ---
+
+    def get_current_balance(self) -> float:
+        now = datetime.now()
+        
+        stmt_income = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.user_id == self.user_id,
+            Transaction.type == TransactionType.INCOME.value,
+            Transaction.date <= now
+        )
+        stmt_expense = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.user_id == self.user_id,
+            Transaction.type == TransactionType.EXPENSE.value,
+            Transaction.date <= now
+        )
+        
+        total_income = self.db.execute(stmt_income).scalar_one()
+        total_expense = self.db.execute(stmt_expense).scalar_one()
+        
+        return float(total_income - total_expense)
+
+    def get_average_daily_expense(self) -> float:
+        now = datetime.now()
+        thirty_days_ago = now - timedelta(days=30)
+        
+        stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.user_id == self.user_id,
+            Transaction.type == TransactionType.EXPENSE.value,
+            Transaction.date.between(thirty_days_ago, now)
+        )
+        
+        total_expenses = self.db.execute(stmt).scalar_one()
+        return float(total_expenses) / 30.0
+
+    def generate_30_day_projection(self) -> dict:
+        current_balance = self.get_current_balance()
+        avg_daily_expense = self.get_average_daily_expense()
+        
+        points = []
+        now = datetime.now()
+        
+        for day in range(31):
+            date = now + timedelta(days=day)
+            projected_balance = current_balance - (avg_daily_expense * day)
+            
+            points.append({
+                "date": date.strftime('%Y-%m-%d'),
+                "balance": round(projected_balance, 2)
+            })
+            
+        days_until_zero = None
+        if avg_daily_expense > 0 and current_balance > 0:
+            days_until_zero = round(current_balance / avg_daily_expense)
+            
+        projected_balance_in_30_days = current_balance - (avg_daily_expense * 30)
+
+        return {
+            "current_balance": round(current_balance, 2),
+            "avg_daily_expense": round(avg_daily_expense, 2),
+            "projected_balance_in_30_days": round(projected_balance_in_30_days, 2),
+            "days_until_zero": days_until_zero,
+            "chart_data": points
+        }
+    
 
     def get_dashboard_data(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-        category: str | None = None,
-    ) -> DashboardResponse:
-        TransactionService(self.db, self.user_id).synchronize_recurring_transactions(end_date)
+            self,
+            start_date: datetime,
+            end_date: datetime,
+            category: str | None = None,
+        ) -> DashboardResponse:
+            TransactionService(self.db, self.user_id).synchronize_recurring_transactions(end_date)
 
-        total_income = self._get_total(
-            start_date, end_date, TransactionType.INCOME, category
-        )
+            total_income = self._get_total(start_date, end_date, TransactionType.INCOME, category)
+            total_expense = self._get_total(start_date, end_date, TransactionType.EXPENSE, category)
+            balance = total_income - total_expense
 
-        total_expense = self._get_total(
-            start_date, end_date, TransactionType.EXPENSE, category
-        )
+            expenses_by_category = self._get_total_by_category(start_date, end_date, TransactionType.EXPENSE)
+            income_by_category = self._get_total_by_category(start_date, end_date, TransactionType.INCOME)
+            last_transactions = self.get_last_transactions()
+            
+            # Call the projection logic
+            projection_data = self.generate_30_day_projection()
 
-        balance = total_income - total_expense
-
-        expenses_by_category = self._get_total_by_category(
-            start_date, end_date, TransactionType.EXPENSE
-        )
-
-        income_by_category = self._get_total_by_category(
-            start_date, end_date, TransactionType.INCOME
-        )
-
-        last_transactions = self.get_last_transactions()
-
-        return DashboardResponse(
-            period=DashboardPeriod(
-                start_date=start_date,
-                end_date=end_date,
-            ),
-            total_income=total_income,
-            total_expense=total_expense,
-            balance=balance,
-            expenses_by_category=expenses_by_category,
-            income_by_category=income_by_category,
-            last_transactions=last_transactions,
-        )
+            return DashboardResponse(
+                period=DashboardPeriod(
+                    start_date=start_date,
+                    end_date=end_date,
+                ),
+                total_income=total_income,
+                total_expense=total_expense,
+                balance=balance,
+                expenses_by_category=expenses_by_category,
+                income_by_category=income_by_category,
+                last_transactions=last_transactions,
+                projection=projection_data 
+            )

@@ -49,6 +49,19 @@ export interface RecurringTransaction {
   next_occurrence_date: string | null
 }
 
+export interface ProjectionPoint {
+  date: string;
+  balance: number;
+}
+
+export interface ProjectionData {
+  current_balance: number;
+  avg_daily_expense: number;
+  projected_balance_in_30_days: number;
+  days_until_zero: number | null;
+  chart_data: ProjectionPoint[];
+}
+
 export type DashboardResponse = {
   total_income: number
   total_expense: number
@@ -56,4 +69,5 @@ export type DashboardResponse = {
   expenses_by_category: CategoryTotal[]
   income_by_category: CategoryTotal[]
   last_transactions: Transaction[]
+  projection?: ProjectionData;
 }
