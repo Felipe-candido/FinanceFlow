@@ -1,0 +1,42 @@
+# Working directory
+root = "."
+# Directory where Air will put the compiled binary
+tmp_dir = "tmp"
+
+[build]
+  # This is the command Air runs to compile your code
+  cmd = "go build -o ./tmp/main ."
+  
+  # This is the command Air runs to start the compiled binary
+  bin = "./tmp/main"
+  
+  # Air will only watch files with these extensions
+  include_ext = ["go", "env"]
+  
+  # Air will ignore these folders to save CPU
+  exclude_dir = ["assets", "tmp", "vendor", "node_modules"]
+  
+  # Delay in milliseconds before building (prevents building twice if you save quickly)
+  delay = 1000
+  
+  # Stop the process if there is a build error
+  stop_on_error = true
+  
+  # Gracefully kill the process before starting the new one
+  send_interrupt = true
+  kill_delay = 500
+
+[log]
+  # Show the time a build happened
+  time = true
+
+[color]
+  # Colors for the terminal output so it is easy to read
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[misc]
+  # Delete the 'tmp' folder when Air stops
+  clean_on_exit = true

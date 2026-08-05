@@ -10,6 +10,41 @@ services:
     ports:
       - "5433:5432"
 
+  # 1. NEW: Redis for Caching
+  redis:
+    image: redis:alpine
+    container_name: financeflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # 2. NEW: RabbitMQ for Message Queue
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: financeflow-rabbitmq
+    ports:
+      - "5672:5672"   # Queue port
+      - "15672:15672" # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+  # 3. NEW: Go Microservice Worker
+  go-worker:
+    build:
+      context: ./go-worker # We will create this folder next
+      dockerfile: Dockerfile
+    container_name: financeflow-go-worker
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -18,6 +53,8 @@ services:
       - .env.backend
     depends_on:
       - db
+      - redis     # Added dependency
+      - rabbitmq  # Added dependency
     ports:
       - "8000:8000"
     command: ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
@@ -35,3 +72,5 @@ services:
 
 volumes:
   pgdata:
+  redis_data:     # Added volume
+  rabbitmq_data:  # Added volume

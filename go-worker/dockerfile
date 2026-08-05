@@ -1,0 +1,43 @@
+# ==========================================
+# DEVELOPMENT STAGE (Used by docker-compose.dev.yml)
+# ==========================================
+FROM golang:alpine AS dev
+
+WORKDIR /app
+
+# Install Air for hot-reloading
+RUN go install github.com/cosmtrek/air@latest
+
+# Copy dependency files first (for better caching)
+COPY go.mod ./
+# If you run 'go mod tidy' later and generate a go.sum, uncomment the line below:
+# COPY go.sum ./
+RUN go mod download
+
+# Copy the rest of the code
+COPY . .
+
+# Expose port (if your worker provides an API later)
+EXPOSE 8080
+
+# Run Air to watch for file changes
+CMD ["air", "-c", ".air.toml"]
+
+# ==========================================
+# BUILD STAGE (For Production)
+# ==========================================
+FROM golang:alpine AS builder
+WORKDIR /app
+COPY go.mod ./
+RUN go mod download
+COPY . .
+RUN go build -o /go-worker main.go
+
+# ==========================================
+# PRODUCTION STAGE (Used by default docker-compose.yml)
+# ==========================================
+FROM alpine:latest AS prod
+WORKDIR /root/
+# Copy the compiled binary from the builder stage
+COPY --from=builder /go-worker .
+CMD ["./go-worker"]
