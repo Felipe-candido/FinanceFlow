@@ -1,9 +1,9 @@
 package insights
 
 import (
-    "context"
-
-    "github.com/jackc/pgx/v5/pgxpool"
+	"context"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Repository struct {
@@ -86,4 +86,65 @@ func (r *Repository) GetLastWeekTransactions(
     }
 
     return txs, rows.Err()
+}
+
+
+func (r *Repository) ReplaceWeeklyInsights(
+    ctx context.Context,
+    insights []WeeklyInsight,
+) error {
+
+    tx, err := r.db.Begin(ctx)
+    if err != nil {
+        return err
+    }
+    defer tx.Rollback(ctx)
+
+    // If there are no insights, nothing to do
+    if len(insights) == 0 {
+        return tx.Commit(ctx)
+    }
+
+    // Delete the current week insights only once
+    _, err = tx.Exec(ctx, `
+        DELETE FROM weekly_insights
+        WHERE user_id = $1
+          AND week_start = $2
+    `,
+        insights[0].UserID,
+        insights[0].WeekStart,
+    )
+
+    if err != nil {
+        return err
+    }
+
+    // Insert the new insights
+    for _, insight := range insights {
+
+        _, err = tx.Exec(ctx, `
+            INSERT INTO weekly_insights (
+                user_id,
+                week_start,
+                position,
+                title,
+                description,
+                type
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+            insight.UserID,
+            insight.WeekStart,
+            insight.Position,
+            insight.Title,
+            insight.Description,
+            insight.Type,
+        )
+
+        if err != nil {
+            return err
+        }
+    }
+
+    return tx.Commit(ctx)
 }
