@@ -2,6 +2,8 @@ package insights
 
 import (
 	"context"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -18,7 +20,7 @@ func (r *Repository) GetActiveUsers(ctx context.Context) ([]uuid.UUID, error) {
     rows, err := r.db.Query(ctx, `
         SELECT id
         FROM users
-        WHERE is_active = true
+        WHERE subscription_status = 'active'
     `)
     if err != nil {
         return nil, err
@@ -43,6 +45,8 @@ func (r *Repository) GetActiveUsers(ctx context.Context) ([]uuid.UUID, error) {
 func (r *Repository) GetLastWeekTransactions(
     ctx context.Context,
     userID uuid.UUID,
+	weekStart time.Time,
+	weekEnd time.Time,
 ) ([]Transaction, error) {
 
     rows, err := r.db.Query(ctx, `
@@ -51,13 +55,15 @@ func (r *Repository) GetLastWeekTransactions(
             user_id,
             amount,
             description,
-            category,
-            transaction_date
-        FROM transactions
-        WHERE user_id = $1
-          AND transaction_date >= CURRENT_DATE - INTERVAL '7 days'
-        ORDER BY transaction_date ASC
-    `, userID)
+            date
+        FROM 
+			transactions
+        WHERE 
+			user_id = $1
+        	AND date >= $2
+  			AND date < $3
+        ORDER BY date ASC
+    `, userID, weekStart, weekEnd)
 
     if err != nil {
         return nil, err
@@ -74,7 +80,6 @@ func (r *Repository) GetLastWeekTransactions(
             &t.UserID,
             &t.Amount,
             &t.Description,
-            &t.Category,
             &t.Date,
         )
 

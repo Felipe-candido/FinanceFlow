@@ -1,8 +1,10 @@
 package core
 
 import (
-    "log"
-    "os"
+	"log"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -13,6 +15,9 @@ type Config struct {
 }
 
 func LoadConfig() Config {
+
+     _ = godotenv.Load()
+
     cfg := Config{
         DatabaseURL: os.Getenv("DATABASE_URL"),
         RabbitMQURL: os.Getenv("RABBITMQ_URL"),
