@@ -28,16 +28,21 @@ func NewGeminiClient(apiKey string) (*GeminiClient, error){
 	}, nil
 }
 
-func (g *GeminiClient) Test(ctx context.Context) (string, error) {
-    response, err := g.client.Models.GenerateContent(
-        ctx,
-        "gemini-3.1-flash-lite",
-        genai.Text("Say hello in one sentence."),
-        nil,
-    )
-    if err != nil {
-        return "", err
-    }
+// Generic method: receives any prompt and returns Gemini's text response.
+func (g *GeminiClient) GenerateText(
+        ctx context.Context,
+        prompt string,
+    ) (string, error) {
+        
+        response, err := g.client.Models.GenerateContent(
+            ctx,
+            "gemini-2.5-flash",
+            genai.Text(prompt),
+            nil,
+        )
+        if err != nil {
+            return "", err
+        }
 
-    return response.Text(), nil
+        return response.Text(), nil
 }
