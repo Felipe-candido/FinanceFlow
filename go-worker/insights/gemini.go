@@ -31,7 +31,7 @@ func buildPrompt(transactions []Transactions) string{
 				"description": "You spent more on restaurants than usual this week.",
 				"type": "warning"
 			}
-		]`
+		]`,
 	)
 
     return b.String()
