@@ -5,7 +5,7 @@ import (
     "strings"
 )
 
-func buildPrompt(transactions []Transactions) string{
+func buildPrompt(transactions []Transaction) string{
    var b strings.Builder
 
     b.WriteString("Analyze these transactions from the last 7 days:\n\n")

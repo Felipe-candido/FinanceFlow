@@ -38,5 +38,5 @@ func main() {
     gemini, _ := core.NewGeminiClient(cfg.GeminiAPIKey)
     service := insights.NewService(repo, gemini)
 
-    err = service.GenerateForUser(ctx, users[0])
+    err = service.GenerateInsights(ctx, users[0])
 }
